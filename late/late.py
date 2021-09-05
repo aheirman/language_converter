@@ -3,7 +3,7 @@ import copy
 import uuid
 from enum import Enum
 import json
-import unittest
+
 
 class bcolors:
     HEADER = '\033[95m'
@@ -537,144 +537,6 @@ def match(productions: Productions, inTokens: list[str], beginRules: list[uuid.U
     return matches[0] if len(matches) == 1 else None
 
 
-class ESRAP(unittest.TestCase):
-
-    @unittest.skip("impl |")
-    def test_add(self):
-        uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
-            ([uuids[0]], 'calculation', 'term'),
-            ([uuids[1]], 'term', 'number "+" term'),
-            ([uuids[2]], 'term', 'number'),
-            ([uuids[3]], 'number', '[0-9]')])
-        input = "1+2+3"
-        outputExpect = input
-        matched = match(Productions(prodA), tokenize(input))
-
-        self.assertNotEqual(matched, None)
-        vals = matched.fullStr()
-        esr = matched.esrap(Productions(prodA))
-        self.assertEqual(esr, outputExpect)
-    
-    @unittest.skip("impl |")
-    def test_add_rename(self):
-        uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
-            ([uuids[0]], 'calculation', 'term'),
-            ([uuids[1]], 'term', 'number "+" term'),
-            ([uuids[2]], 'term', 'number'),
-            ([uuids[3]], 'number', '[0-9]')])
-        prodB = Productiongenerator.createAllProductions([
-            ([uuids[0]], 'calculation', 'term'),
-            ([uuids[1]], 'term', 'number "plus"{"pad": true} term'),
-            ([uuids[2]], 'term', 'number'),
-            ([uuids[3]], 'number', '[0-9]')])
-        input = "1+2+3"
-        outputExpect = '1 plus 2 plus 3'
-        matched = match(Productions(prodA), tokenize(input))
-
-        self.assertNotEqual(matched, None)
-        vals = matched.fullStr()
-        esr = matched.esrap(Productions(prodB))
-        self.assertEqual(esr, outputExpect)
-
-    @unittest.skip("impl |")
-    def test_mul_distributivity(self):
-        uuids = [uuid.uuid4() for i in range(10)]
-
-        prodD = Productiongenerator.createAllProductions([
-            ([uuids[0]], 'calculation', 'term'),
-            ([uuids[1]], 'term', 'number "*" "(" term "+" term ")"'),
-            ([uuids[2]], 'term', 'number'),
-            ([uuids[3]], 'number', '[0-9]')])
-        prodF = Productiongenerator.createAllProductions([
-            ([uuids[0]], 'calculation', 'term'),
-            ([uuids[4]], 'term', '"(" number{"id": 0} "*" "(" term{"id": 1} ")" ")" "+" "(" number{"id": 0} "*" "(" term{"id": 2} ")" ")"', uuids[1]),
-            ([uuids[2]], 'term', 'number'),
-            ([uuids[3]], 'number', '[0-9]')])
-        
-        input = "1*(2+3)"
-        outputExpect = '(1*(2))+(1*(3))'
-        matched = match(Productions(prodD), tokenize(input))
-
-        self.assertNotEqual(matched, None)
-        vals = matched.fullStr()
-        esr = matched.esrap(Productions(prodF))
-        self.assertEqual(esr, outputExpect)
-
-    @unittest.skip("impl |")
-    def test_or(self):
-        uuids = [uuid.uuid4() for i in range(10)]
-        begin = [uuids[0], uuids[1]]
-        prodA = Productiongenerator.createAllProductions([(begin, 'number', '"a" | "b"')])
-        inputs = ["a", "b"]
-        for input in inputs: 
-            outputExpect = input
-            matched = match(Productions(prodA), tokenize(input), begin)
-
-            self.assertNotEqual(matched, None)
-            vals = matched.fullStr()
-            esr = matched.esrap(Productions(prodA))
-            self.assertEqual(esr, outputExpect)
-
-    
-    def test_func(self):
-        uuids = [uuid.uuid4() for i in range(50)]
-        begin = [uuids[0],  uuids[1]]
-        
-        """
-        prodBNF = Productiongenerator.createAllProductions([
-            (begin,                             'syntax',         'rule | rule syntax'),
-            ([uuids[2]],                        'rule',           'opt-whitespace rule-name opt-whitespace "::=" opt-whitespace expression line-end'),
-            ([uuids[3]],                        'opt-whitespace', '[ ]*'),
-            ([uuids[4],  uuids[5], uuids[6]],   'expression',     'list | list opt-whitespace "|" opt-whitespace expression'),
-            ([uuids[7],  uuids[8]],             'line-end',       'opt-whitespace "|" opt-whitespace expression'),
-            ([uuids[9],  uuids[10]],            'list',           'term | term opt-whitespace list'),
-            ([uuids[11], uuids[12]],            'term',           'literal | rule-name'),
-            ([uuids[13], uuids[14]],            'literal',        '"\\"" text1 "\\"" | "\'" text2 "\'"'),
-            ([uuids[15], uuids[16]],            'text1',          '"" | character1 text1'),
-            ([uuids[17], uuids[18]],            'text2',          '\'\' | character2 text2'),
-            ([uuids[19], uuids[20], uuids[21]], 'character',      'letter | digit | symbol'),
-            ([uuids[22]],                       'letter',         '[a-zA-Z]'),
-            ([uuids[23]],                       'digit',          '[0-9]'),
-            ([uuids[24]],                       'symbol',         '[\|!]'),
-            #([uuids[12]], 'symbol',            '"|" | " " | "!" | "#" | "$" | "%" | "&" | "(" | ")" | "*" | "+" | "," | "-" | "." | "/" | ":" | ";" | ">" | "=" | "<" | "?" | "@" | "[" | "\" | "]" | "^" | "_" | "`" | "{" | "}" | "~"'),
-            ([uuids[25], uuids[26]],            'character1',     'character | "\'"'),
-            ([uuids[27], uuids[28]],            'character2',     'character | "\\""'),
-            ([uuids[29], uuids[30]],            'rule-name',      'letter | rule-name rule-char'),
-            ([uuids[31], uuids[32], uuids[33]], 'rule-char',      'letter | digit | "-"'),
-            #Platform specific
-            ([uuids[34]], 'EOL',            '"\r\n"'),
-            ])  """
-            
-        
-        
-        prodBNF = Productiongenerator.createAllProductions([
-            (begin,                             'syntax',         'rule | rule syntax'),
-            ([uuids[2]],                        'rule',           'rule-name "::="{"pad": true} expression line-end'),
-            ([uuids[4],  uuids[5], uuids[6]],   'expression',     'list | list "|" expression'),
-            ([uuids[7],  uuids[8]],             'line-end',       'EOL | expression'),
-            ([uuids[9],  uuids[10]],            'list',           'term | term list'),
-            ([uuids[11], uuids[12]],            'term',           'literal | rule-name'),
-            ([uuids[13], uuids[14]],            'literal',        '"\\"" [a-zA-Z0-9\\\']+ "\\"" | "\'" [a-zA-Z0-9\\"]+ "\'"'),
-            #([uuids[12]], 'symbol',            '"|" | " " | "!" | "#" | "$" | "%" | "&" | "(" | ")" | "*" | "+" | "," | "-" | "." | "/" | ":" | ";" | ">" | "=" | "<" | "?" | "@" | "[" | "\" | "]" | "^" | "_" | "`" | "{" | "}" | "~"'),
-            ([uuids[29], uuids[30]],            'rule-name',      '[a-zA-Z0-9]+'),
-            #Platform specific
-            ([uuids[34]], 'EOL',            '"\n"'),
-            ])
-
-        inputs = ["hello ::= a\n", "hello ::= a\na ::= b\n"]
-        for input in inputs: 
-            outputExpect = input
-            matched = match(Productions(prodBNF), tokenize(input), begin)
-
-            self.assertNotEqual(matched, None)
-            vals = matched.fullStr()
-            esr = matched.esrap(Productions(prodBNF))
-            self.assertEqual(esr, outputExpect)
-
-
-
 def foo():
     #number = Terminal('[0-9]')
     #number2 = Terminal('\+')
@@ -715,4 +577,3 @@ def foo():
         print('No match!')
 
 
-unittest.main()
