@@ -41,7 +41,7 @@ class Terminal:
         #print(f'{self.token}, {self.token.settings}')
         if (self.token.settings['regex']):
             self.rule = rule
-            #print(f'Terminal with regex rule: {self.token.tok}')
+            print(f'Terminal with regex rule: {self.token.tok}')
             self.reg = re.compile(self.token.tok)
         else:
             self.rule = rule
@@ -50,10 +50,13 @@ class Terminal:
     
     def match(self, input):
         if (self.token.settings['regex']):
+            print(f'Terminal regex match: "{input}", "{self.rule}"')
             r = self.reg.match(input)
-            return False if r==None else (r.start() == 0)
+            t = False if r==None else (r.start() == 0)
+            print(f'Terminal regex match: "{input}", "{self.rule}, res: {r}, bool: {t}"')
+            return t
         else:
-            #print(f'"{input}", "{self.rule}", "{input == self.rule}"')
+            print(f'Terminal match: "{input}", "{self.rule}", "{input == self.rule}"')
             return input == self.rule.tok
 
     def name(self):
@@ -62,63 +65,7 @@ class Terminal:
     def __str__(self):
         return f'{{Terminal: "{self.rule}}}'
 
-class TokenizeSettings(Enum):
-    NORMAL = 1
-    QUOTE = 2
-    VAL_FINISHED = 3
-    SETTINGS_BLOCK = 4
-    END = 5
-
 class Production:
-    def tokenize(self, input):
-        print(f'Production tokenize {input}')
-        tokens = []
-        curr = ''
-        strSettings = ''
-        status = TokenizeSettings.NORMAL
-        defSettings = {'regex': True}
-        settings = copy.copy(defSettings)
-        for c in input:
-            #print('status: ' + ' '.join(map(str, ret)) + ' adding char: ' + c)
-            if ((status == TokenizeSettings.NORMAL or status == TokenizeSettings.END or status == TokenizeSettings.VAL_FINISHED) and c == ' '): 
-                #print(f'settings: {settings} strSettings: {strSettings}')
-                if (strSettings != ''):
-                    settings.update(json.loads(strSettings))
-                    #print(f'---settings: {settings}')
-                tokens.append(Token(curr, settings))
-                status = TokenizeSettings.NORMAL
-
-                settings = copy.copy(defSettings)
-                curr = ''
-                strSettings = ''
-            elif (status == TokenizeSettings.NORMAL and c == '"'):
-                    status = TokenizeSettings.QUOTE
-                    settings['regex'] = False
-            elif (status == TokenizeSettings.QUOTE and c == '"'):
-                    status = TokenizeSettings.VAL_FINISHED
-            elif ((status == TokenizeSettings.VAL_FINISHED or status == TokenizeSettings.NORMAL) and c == '{'):
-                status = TokenizeSettings.SETTINGS_BLOCK
-                strSettings += c
-            elif (status == TokenizeSettings.SETTINGS_BLOCK and c == '}'):
-                status = TokenizeSettings.END
-                strSettings += c
-            elif (status == TokenizeSettings.NORMAL or status == TokenizeSettings.QUOTE):
-                curr += c
-            elif (status == TokenizeSettings.SETTINGS_BLOCK):
-                strSettings += c
-            else:
-                print(f'ERROR: status: {status}')
-                assert False
-
-        if(curr != ''):
-            #print(f'strSettings: {strSettings}')
-            if (strSettings != ''):
-                settings.update(json.loads(strSettings))
-            tokens.append(Token(curr, settings))
-        
-        print(f'Production tokenize tokens: {str([str(tok) for tok in tokens])}')
-        return tokens
-
     def process(self, productions):
         steps = []
         for tok in self.tokens:
@@ -130,9 +77,9 @@ class Production:
                 steps.append(NonTerminal(tok))
         self.steps = steps
     
-    def __init__(self, uuid, name: str, match: str, uuid_compat = None):
+    def __init__(self, uuid, name: str, tokens: list[Token], uuid_compat = None):
         self.name = name
-        self.tokens = self.tokenize(match)
+        self.tokens = tokens
         self.uuid = uuid
         self.uuid_compat = uuid_compat
 
@@ -145,6 +92,124 @@ class Production:
         return f'Production {{ name: {self.name}, {stepStr}{uuidCompatStr}'
         #return f'Production {{ name: {self.name}, {tokensStr} }}'
 
+class TokenizeSettings(Enum):
+    PRE = 0
+    NORMAL = 1
+    QUOTE = 2
+    REGEX = 6
+    REGEXPOSEND = 7
+    VAL_FINISHED = 3
+    SETTINGS_BLOCK = 4
+    END = 5
+
+class Productiongenerator():
+    @staticmethod
+    def tokenize(input):
+        print(f'Production tokenize {input}')
+        tokens = [[]]
+        currProduction = 0
+        curr = ''
+        strSettings = ''
+        status = TokenizeSettings.PRE
+        defSettings = {'regex': True}
+        settings = copy.copy(defSettings)
+        escaped = False
+        nextEscaped = False
+
+        def tokenEnd(status, c):
+            if (status in [
+                TokenizeSettings.NORMAL,
+                TokenizeSettings.END,
+                TokenizeSettings.VAL_FINISHED,
+                TokenizeSettings.REGEXPOSEND]):
+                return True
+            return False
+
+        for c in input:
+            escaped = nextEscaped
+            nextEscaped = False
+            print(f'currProduction: {currProduction}, escaped: {escaped}, status: {status}, tokens: ' + ' '.join(map(str, tokens[currProduction])) + ', adding char: ' + c)
+            
+            if (tokenEnd(status, c) and (c == ' ' or c == '\n')):
+                #Start new token
+                #print(f'settings: {settings} strSettings: {strSettings}')
+                if (strSettings != ''):
+                    settings.update(json.loads(strSettings))
+                    #print(f'---settings: {settings}')
+                tokens[currProduction].append(Token(curr, settings))
+                status = TokenizeSettings.PRE
+
+                settings = copy.copy(defSettings)
+                curr = ''
+                strSettings = ''
+                if c == '\n':
+                    #A real token!
+                    tokens[currProduction].append(Token('\n', {}))
+
+            elif (status == TokenizeSettings.PRE):
+                if (c == ' '):
+                    pass
+                elif (c == '|'):
+                    currProduction += 1
+                    tokens.append([])
+                elif ( c == '"'):
+                    status = TokenizeSettings.QUOTE
+                    settings['regex'] = False
+                elif ( c == '['):
+                    status = TokenizeSettings.REGEX
+                    settings['regex'] = True
+                    curr += c
+                else:
+                    status = TokenizeSettings.NORMAL
+                    curr += c
+            elif (status == TokenizeSettings.REGEX):
+                if (c == '\\' and not escaped):
+                    nextEscaped = True
+                elif (c == ']' and not escaped):
+                    curr += c
+                    status = TokenizeSettings.REGEXPOSEND
+                else:
+                    curr += c
+            elif (status == TokenizeSettings.QUOTE and not escaped and c == '"'):
+                    status = TokenizeSettings.VAL_FINISHED
+            elif ((status in [TokenizeSettings.VAL_FINISHED, TokenizeSettings.NORMAL, TokenizeSettings.REGEXPOSEND]) and c == '{'):
+                status = TokenizeSettings.SETTINGS_BLOCK
+                strSettings += c
+            elif (status == TokenizeSettings.SETTINGS_BLOCK and c == '}'):
+                status = TokenizeSettings.END
+                strSettings += c
+            elif (status in [TokenizeSettings.NORMAL, TokenizeSettings.QUOTE, TokenizeSettings.REGEXPOSEND]):
+                if (c == '\\' and not escaped):
+                    nextEscaped = True
+                else:
+                    curr += c
+            elif (status == TokenizeSettings.SETTINGS_BLOCK):
+                strSettings += c
+            else:
+                print(f'ERROR: status: {status}')
+                assert False
+
+        if(curr != ''):
+            #print(f'strSettings: {strSettings}')
+            if (strSettings != ''):
+                settings.update(json.loads(strSettings))
+            tokens[currProduction].append(Token(curr, settings))
+        
+        #print(f'Production tokenize tokens: {str([str(tok) for tok in tokens])}')
+        return tokens
+
+    @staticmethod
+    def __createProductions(uuids, name, input: str, uuid_compat = None) -> list[Production]:
+        tokenList = Productiongenerator.tokenize(input)
+        prods = [Production(uuids[i], name, tokens, uuid_compat) for i, tokens in enumerate(tokenList)]
+        return prods
+
+    @staticmethod
+    def createAllProductions(list):
+        prods = []
+        for rule in list:
+            prods.extend(Productiongenerator.__createProductions(*rule))
+        return prods
 
 class Productions:
 
@@ -228,10 +293,14 @@ class State:
         return self.position == len(self.production.steps)
 
     def isinstance(self, NonTerminalName: str):
-        next = self.production.steps[self.position]
-        if not isinstance(next, NonTerminal):
+        #print(f'state: isinstance NonTerminalName: {NonTerminalName}, self.position: {self.position}')
+        if not self.isCompleted():
+            next = self.production.steps[self.position]
+            if not isinstance(next, NonTerminal):
+                return False
+            return next.name() == NonTerminalName
+        else:
             return False
-        return next.name() == NonTerminalName
 
     def getNextName(self):
         return self.production.steps[self.position].name()
@@ -268,31 +337,21 @@ class State:
 
     def esrap(self, productions: Productions):
         
-        print(f'-------BEGIN ESRAP OF {self.name()}-------')
-        print(self.fullStr())
+        #print(f'-------BEGIN ESRAP OF {self.name()}-------')
+        #print(self.fullStr())
         otherProd = productions.getProduction(self.production.uuid)
         equal = True
         if otherProd == None:
-            print(f'=====CONVERSIONS ARE NEEDED=====')
+            #print(f'=====CONVERSIONS ARE NEEDED=====')
             # conversions are needed
             otherProd = productions.getCompatableProduction(self.production.uuid)
             equal = False
 
-        #tokensA = self.production.tokens
-        #tokensB = eqProd.tokens
         stepsA = self.production.steps
         stepsB = otherProd.steps
-        #if (equal):
-        #    assert(len(stepsA) == len(stepsB))
-
 
         indexToIndices = self.__genIndexToIndices(otherProd, not equal)
-        print(f'indexToIndices: {indexToIndices}')
-        #print(f'stepsA {stepsA}')
-        #print(f'stepsB {stepsB}')
-        print(f'valuesA {self.values}')
-        print(f'stepsA {[str(step) for step in stepsA]}')
-        print(f'stepsB {[str(step) for step in stepsB]}')
+        #print(f'indexToIndices: {indexToIndices}')
 
         #Replace all
         strs = [None]*len(stepsB)
@@ -309,28 +368,25 @@ class State:
         selfCountExludingStr = 0
         for i, step in enumerate(stepsA):
             typeName = type(step).__name__
-            print(f'{bcolors.OKGREEN}status: name {self.name()}, i: {i}, step: {step}, typeName: {typeName}{bcolors.ENDC}')
+            #print(f'{bcolors.OKGREEN}status: name {self.name()}, i: {i}, step: {step}, typeName: {typeName}{bcolors.ENDC}')
 
             val = self.values[i]
             typeName = type(val).__name__
-            print(f'{bcolors.OKGREEN}status: name {self.name()}, i: {i}, val: {val}, typeName: {typeName}{bcolors.ENDC}')
+            #print(f'{bcolors.OKGREEN}status: name {self.name()}, i: {i}, val: {val}, typeName: {typeName}{bcolors.ENDC}')
             if isinstance(val, State):
-                print(f'AAAAAAAA')
                 compatIndices = indexToIndices[selfCountExludingStr]
                 
                 for compatIndex in compatIndices:
                     strs[compatIndex] = val.esrap(productions)
                 selfCountExludingStr += 1
             else:
-                print(f'BBBBBBBB')
-                
                 if i in indexToIndices:
                     compatIndex = indexToIndices[i][0]
                     assert(len(indexToIndices[i]) == 1)
                     if (isinstance(val, Terminal)):
                         isRegex = stepsA[i].rule.settings['regex']
                         isRegexB = stepsB[compatIndex].rule.settings['regex']
-                        print(f'isRegex: {isRegex}, isRegexB: {isRegexB}')
+                        #print(f'isRegex: {isRegex}, isRegexB: {isRegexB}')
                         assert(isRegex == isRegexB)
 
                         strs[compatIndex] = val
@@ -350,8 +406,8 @@ class State:
                         print(f'ERROR: {typeName}')
                         assert False
         
-        print(f'-------END ESRAP OF {self.name()}-------')
-        print(strs)
+        #print(f'-------END ESRAP OF {self.name()}-------')
+        #print(strs)
         strs = [str if str else 'BOOO' for str in strs ]
         return ''.join(strs)
 
@@ -391,7 +447,7 @@ class Column():
 
 
 def complete(table, state: State):
-    #print(f'complete {state.production.name}, {state.originPosition}')
+    print(f'complete {state.production.name}, {state.originPosition}')
     colJ = table[state.originPosition].states
     newStates = []
     for stateJ in colJ:
@@ -403,18 +459,16 @@ def complete(table, state: State):
 
 def tokenize(input: str):
         tokens = []
-        interupts = ['+', '-', '*', '/', '(', ')']
+        interupts = ['+', '-', '*', '/', '(', ')', '\n']
         curr = ''
         status = TokenizeSettings.NORMAL
         for c in input:
             #print('status: ' + ' '.join(map(str, ret)) + ' adding char: ' + c)
             if ((status == TokenizeSettings.NORMAL) and c == ' '): 
                 tokens.append(curr)
-                status = TokenizeSettings.NORMAL
                 curr = ''
             elif ((status == TokenizeSettings.NORMAL) and (c in interupts)):
                 tokens.append(curr)
-                status = TokenizeSettings.NORMAL
                 tokens.append(c)
                 curr = ''
             elif (status == TokenizeSettings.NORMAL):
@@ -429,43 +483,46 @@ def tokenize(input: str):
         tokens = [tok for tok in tokens if (len(tok) != 0)]
         return tokens
 
-def match(productions: Productions, input: str):
-    #print(str(productions))
-    inTokens = tokenize(input)
+def match(productions: Productions, inTokens: list[str], beginRules: list[uuid.UUID] = None):
+    print(str(productions))
     tokenStr = '\n\t'.join([str(tok) for tok in inTokens])
-    #print(f'tokenized: \n\t{tokenStr}')
+    print(f'tokenized: \n\t{tokenStr}, len: {len(inTokens)}')
     #table = [Column(productions, [State(prod, 0) for prod in productions.productions])]
     topLevelName = productions.productions[0].name
     table = [Column(productions, []) for i in range(len(inTokens)+1)]
-    table[0].extend([State(productions.productions[0], 0)])
+
+    if beginRules == None:
+        table[0].extend([State(productions.productions[0], 0)])
+    else:
+        table[0].extend([State(productions.productions[i], 0) for i in range(len(productions.productions)) if productions.productions[i].uuid in beginRules])
     
     for currentChart, col in enumerate(table):
         #pre
         tok = inTokens[currentChart] if currentChart<len(inTokens) else None
-        #print(f'------{currentChart}, {tok}------')
+        print(f'------{currentChart}, {tok}------')
 
         #real work
         for state in col.states:
-            #print(f'sate name: {state.production.name}')
+            print(f'sate name: {state.production.name}')
             if (state.isCompleted()):
                 col.states.extend(complete(table, state))
             else:
                 if (tok != None and state.nextIsTerminal()):
-                    #print('Scanning')
+                    print('Scanning')
                     if (state.match(tok)):
-                        #print('Scanning matched!')
+                        print('Scanning matched!')
                         #Scanning
                         newState = copy.copy(state)
                         newState.advance(tok)
                         table[currentChart+1].append(newState)
                 else:
-                    #print('Predicting')
+                    print('Predicting')
                     #Prediction
                     productionName = state.getNextName()
                     col.extend(col.predict(productionName, currentChart))
 
         #post
-        #print('\n'.join(map(str, col.states)))
+        print('\n'.join(map(str, col.states)))
     
     # Find result
     matches = []
@@ -473,6 +530,7 @@ def match(productions: Productions, input: str):
         if (status.originPosition == 0 and status.isCompleted() and status.production.name == topLevelName):
             matches.append(status)
     
+    print(f'MATCHES: {matches}')
     if (len(matches) > 1):
         print(f'ERROR: MULTIPLE MATCHES')
         assert False
@@ -481,82 +539,141 @@ def match(productions: Productions, input: str):
 
 class ESRAP(unittest.TestCase):
 
+    @unittest.skip("impl |")
     def test_add(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = [Production(uuids[0], 'calculation', 'term'), Production(uuids[1], 'term', 'number "+" term'), Production(uuids[2], 'term', 'number'), Production(uuids[3], 'number', '[0-9]')]
+        prodA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'calculation', 'term'),
+            ([uuids[1]], 'term', 'number "+" term'),
+            ([uuids[2]], 'term', 'number'),
+            ([uuids[3]], 'number', '[0-9]')])
         input = "1+2+3"
         outputExpect = input
-        matched = match(Productions(prodA), input)
+        matched = match(Productions(prodA), tokenize(input))
 
         self.assertNotEqual(matched, None)
         vals = matched.fullStr()
         esr = matched.esrap(Productions(prodA))
         self.assertEqual(esr, outputExpect)
     
+    @unittest.skip("impl |")
     def test_add_rename(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = [Production(uuids[0], 'calculation', 'term'), Production(uuids[1], 'term', 'number "+" term'), Production(uuids[2], 'term', 'number'), Production(uuids[3], 'number', '[0-9]')]
-        prodB = [Production(uuids[0], 'calculation', 'term'), Production(uuids[1], 'term', 'number "plus"{"pad": true} term'), Production(uuids[2], 'term', 'number'), Production(uuids[3], 'number', '[0-9]')]
+        prodA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'calculation', 'term'),
+            ([uuids[1]], 'term', 'number "+" term'),
+            ([uuids[2]], 'term', 'number'),
+            ([uuids[3]], 'number', '[0-9]')])
+        prodB = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'calculation', 'term'),
+            ([uuids[1]], 'term', 'number "plus"{"pad": true} term'),
+            ([uuids[2]], 'term', 'number'),
+            ([uuids[3]], 'number', '[0-9]')])
         input = "1+2+3"
         outputExpect = '1 plus 2 plus 3'
-        matched = match(Productions(prodA), input)
+        matched = match(Productions(prodA), tokenize(input))
 
         self.assertNotEqual(matched, None)
         vals = matched.fullStr()
         esr = matched.esrap(Productions(prodB))
         self.assertEqual(esr, outputExpect)
 
+    @unittest.skip("impl |")
     def test_mul_distributivity(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodD = [Production(uuids[0], 'calculation', 'term'), Production(uuids[1], 'term', 'number "*" "(" term "+" term ")"'), Production(uuids[2], 'term', 'number'), Production(uuids[3], 'number', '[0-9]')]
-        prodF = [Production(uuids[0], 'calculation', 'term'), Production(uuids[4], 'term', '"(" number{"id": 0} "*" "(" term{"id": 1} ")" ")" "+" "(" number{"id": 0} "*" "(" term{"id": 2} ")" ")"', uuids[1]), Production(uuids[2], 'term', 'number'), Production(uuids[3], 'number', '[0-9]')]
+
+        prodD = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'calculation', 'term'),
+            ([uuids[1]], 'term', 'number "*" "(" term "+" term ")"'),
+            ([uuids[2]], 'term', 'number'),
+            ([uuids[3]], 'number', '[0-9]')])
+        prodF = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'calculation', 'term'),
+            ([uuids[4]], 'term', '"(" number{"id": 0} "*" "(" term{"id": 1} ")" ")" "+" "(" number{"id": 0} "*" "(" term{"id": 2} ")" ")"', uuids[1]),
+            ([uuids[2]], 'term', 'number'),
+            ([uuids[3]], 'number', '[0-9]')])
+        
         input = "1*(2+3)"
         outputExpect = '(1*(2))+(1*(3))'
-        matched = match(Productions(prodD), input)
+        matched = match(Productions(prodD), tokenize(input))
 
         self.assertNotEqual(matched, None)
         vals = matched.fullStr()
         esr = matched.esrap(Productions(prodF))
         self.assertEqual(esr, outputExpect)
 
+    @unittest.skip("impl |")
     def test_or(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = [Production(uuids[0], 'number', 'a | b')]
+        begin = [uuids[0], uuids[1]]
+        prodA = Productiongenerator.createAllProductions([(begin, 'number', '"a" | "b"')])
         inputs = ["a", "b"]
         for input in inputs: 
             outputExpect = input
-            matched = match(Productions(prodA), input)
+            matched = match(Productions(prodA), tokenize(input), begin)
 
             self.assertNotEqual(matched, None)
             vals = matched.fullStr()
             esr = matched.esrap(Productions(prodA))
             self.assertEqual(esr, outputExpect)
 
-    @unittest.skip("impl |")
+    
     def test_func(self):
-        uuids = [uuid.uuid4() for i in range(10)]
-        prodBNF = [
-            Production(uuids[0],  'syntax',         'rule | rule syntax'),
-            Production(uuids[1],  'rule',           'opt-whitespace rule-name opt-whitespace "::=" opt-whitespace expression line-end'),
-            Production(uuids[2],  'opt-whitespace', '[ ]*'),
-            Production(uuids[3],  'expression',     'list | list opt-whitespace "|" opt-whitespace expression'),
-            Production(uuids[4],  'line-end',       'opt-whitespace "|" opt-whitespace expression'),
-            Production(uuids[5],  'list',           'term | term opt-whitespace list'),
-            Production(uuids[6],  'term',           'literal | rule-name'),
-            Production(uuids[6],  'literal',        '""" text1 """ | "\'" text2 "\'"'),
-            Production(uuids[7],  'text1',          '"" | character1 text1'),
-            Production(uuids[8],  'text2',          '\'\' | character2 text2'),
-            Production(uuids[9],  'character',      'letter | digit | symbol'),
-            Production(uuids[10], 'letter',         '[a-zA-Z]'),
-            Production(uuids[11], 'digit',          '[0-9]'),
-            Production(uuids[12], 'symbol',         '"|" | " " | "!" | "#" | "$" | "%" | "&" | "(" | ")" | "*" | "+" | "," | "-" | "." | "/" | ":" | ";" | ">" | "=" | "<" | "?" | "@" | "[" | "\" | "]" | "^" | "_" | "`" | "{" | "}" | "~"'),
-            Production(uuids[13], 'character1',     'character | "\'"'),
-            Production(uuids[14], 'character2',     'character | """'),
-            Production(uuids[15], 'rule-name',      'letter | rule-name rule-char'),
-            Production(uuids[16], 'rule-char',      'letter | digit | "-"'),
+        uuids = [uuid.uuid4() for i in range(50)]
+        begin = [uuids[0],  uuids[1]]
+        
+        """
+        prodBNF = Productiongenerator.createAllProductions([
+            (begin,                             'syntax',         'rule | rule syntax'),
+            ([uuids[2]],                        'rule',           'opt-whitespace rule-name opt-whitespace "::=" opt-whitespace expression line-end'),
+            ([uuids[3]],                        'opt-whitespace', '[ ]*'),
+            ([uuids[4],  uuids[5], uuids[6]],   'expression',     'list | list opt-whitespace "|" opt-whitespace expression'),
+            ([uuids[7],  uuids[8]],             'line-end',       'opt-whitespace "|" opt-whitespace expression'),
+            ([uuids[9],  uuids[10]],            'list',           'term | term opt-whitespace list'),
+            ([uuids[11], uuids[12]],            'term',           'literal | rule-name'),
+            ([uuids[13], uuids[14]],            'literal',        '"\\"" text1 "\\"" | "\'" text2 "\'"'),
+            ([uuids[15], uuids[16]],            'text1',          '"" | character1 text1'),
+            ([uuids[17], uuids[18]],            'text2',          '\'\' | character2 text2'),
+            ([uuids[19], uuids[20], uuids[21]], 'character',      'letter | digit | symbol'),
+            ([uuids[22]],                       'letter',         '[a-zA-Z]'),
+            ([uuids[23]],                       'digit',          '[0-9]'),
+            ([uuids[24]],                       'symbol',         '[\|!]'),
+            #([uuids[12]], 'symbol',            '"|" | " " | "!" | "#" | "$" | "%" | "&" | "(" | ")" | "*" | "+" | "," | "-" | "." | "/" | ":" | ";" | ">" | "=" | "<" | "?" | "@" | "[" | "\" | "]" | "^" | "_" | "`" | "{" | "}" | "~"'),
+            ([uuids[25], uuids[26]],            'character1',     'character | "\'"'),
+            ([uuids[27], uuids[28]],            'character2',     'character | "\\""'),
+            ([uuids[29], uuids[30]],            'rule-name',      'letter | rule-name rule-char'),
+            ([uuids[31], uuids[32], uuids[33]], 'rule-char',      'letter | digit | "-"'),
             #Platform specific
-            Production(uuids[17], 'EOL',            '"\r\n"'),
-            ]
+            ([uuids[34]], 'EOL',            '"\r\n"'),
+            ])  """
+            
+        
+        
+        prodBNF = Productiongenerator.createAllProductions([
+            (begin,                             'syntax',         'rule | rule syntax'),
+            ([uuids[2]],                        'rule',           'rule-name "::="{"pad": true} expression line-end'),
+            ([uuids[4],  uuids[5], uuids[6]],   'expression',     'list | list "|" expression'),
+            ([uuids[7],  uuids[8]],             'line-end',       'EOL | expression'),
+            ([uuids[9],  uuids[10]],            'list',           'term | term list'),
+            ([uuids[11], uuids[12]],            'term',           'literal | rule-name'),
+            ([uuids[13], uuids[14]],            'literal',        '"\\"" [a-zA-Z0-9\\\']+ "\\"" | "\'" [a-zA-Z0-9\\"]+ "\'"'),
+            #([uuids[12]], 'symbol',            '"|" | " " | "!" | "#" | "$" | "%" | "&" | "(" | ")" | "*" | "+" | "," | "-" | "." | "/" | ":" | ";" | ">" | "=" | "<" | "?" | "@" | "[" | "\" | "]" | "^" | "_" | "`" | "{" | "}" | "~"'),
+            ([uuids[29], uuids[30]],            'rule-name',      '[a-zA-Z0-9]+'),
+            #Platform specific
+            ([uuids[34]], 'EOL',            '"\n"'),
+            ])
+
+        inputs = ["hello ::= a\n", "hello ::= a\na ::= b\n"]
+        for input in inputs: 
+            outputExpect = input
+            matched = match(Productions(prodBNF), tokenize(input), begin)
+
+            self.assertNotEqual(matched, None)
+            vals = matched.fullStr()
+            esr = matched.esrap(Productions(prodBNF))
+            self.assertEqual(esr, outputExpect)
+
+
 
 def foo():
     #number = Terminal('[0-9]')
