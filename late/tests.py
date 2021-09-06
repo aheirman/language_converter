@@ -14,6 +14,23 @@ class ESRAP(unittest.TestCase):
             ([uuids[1]], 'term', 'number "+" term'),
             ([uuids[2]], 'term', 'number'),
             ([uuids[3]], 'number', '[0-9]')])
+        input = "1+2"
+        outputExpect = input
+        matched = match(Productions(prodA), tokenize(input))
+
+        self.assertNotEqual(matched, None)
+        vals = matched.fullStr()
+        esr = matched.esrap(Productions(prodA))
+        self.assertEqual(esr, outputExpect)
+
+    @unittest.skip("impl |")
+    def test_add2(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'calculation', 'term'),
+            ([uuids[1]], 'term', 'number "+" term'),
+            ([uuids[2]], 'term', 'number'),
+            ([uuids[3]], 'number', '[0-9]')])
         input = "1+2+3"
         outputExpect = input
         matched = match(Productions(prodA), tokenize(input))
@@ -84,8 +101,31 @@ class ESRAP(unittest.TestCase):
             esr = matched.esrap(Productions(prodA))
             self.assertEqual(esr, outputExpect)
 
-    
-    def test_func(self):
+    def test_zeroOrMore(self):
+        pass
+
+    def test_atLeastOne(self):
+        pass
+
+    #@unittest.skip("impl |")
+    def test_optional(self):
+        print('test_optional')
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a" "b"{"opt": true, "pad": true}')])
+        inputs = ["a", "a b "]
+        for input in inputs:
+            
+            outputExpect = input
+            matched = match(Productions(prodA), tokenize(input))
+
+            self.assertNotEqual(matched, None)
+            vals = matched.fullStr()
+            esr = matched.esrap(Productions(prodA))
+            print(f'input: {input}, esr: {esr}')
+            self.assertEqual(esr, outputExpect)
+
+    @unittest.skip("impl |")
+    def test_bnf(self):
         uuids = [uuid.uuid4() for i in range(50)]
         begin = [uuids[0],  uuids[1]]
         

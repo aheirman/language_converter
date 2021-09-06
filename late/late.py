@@ -3,7 +3,7 @@ import copy
 import uuid
 from enum import Enum
 import json
-
+#from late.helper import print
 
 class bcolors:
     HEADER = '\033[95m'
@@ -45,10 +45,10 @@ class Terminal:
             self.reg = re.compile(self.token.tok)
         else:
             self.rule = rule
-            #print(f"Terminal with rule: {self.token.tok}")
+            print(f"Terminal with rule: {self.token.tok}")
 
     
-    def match(self, input):
+    def match(self, input: str):
         if (self.token.settings['regex']):
             print(f'Terminal regex match: "{input}", "{self.rule}"')
             r = self.reg.match(input)
@@ -56,7 +56,7 @@ class Terminal:
             print(f'Terminal regex match: "{input}", "{self.rule}, res: {r}, bool: {t}"')
             return t
         else:
-            print(f'Terminal match: "{input}", "{self.rule}", "{input == self.rule}"')
+            print(f'Terminal match: "{input}", "{self.rule.tok}", "{input == self.rule.tok}"')
             return input == self.rule.tok
 
     def name(self):
@@ -105,7 +105,7 @@ class TokenizeSettings(Enum):
 class Productiongenerator():
     @staticmethod
     def tokenize(input):
-        print(f'Production tokenize {input}')
+        #print(f'Production tokenize {input}')
         tokens = [[]]
         currProduction = 0
         curr = ''
@@ -128,7 +128,7 @@ class Productiongenerator():
         for c in input:
             escaped = nextEscaped
             nextEscaped = False
-            print(f'currProduction: {currProduction}, escaped: {escaped}, status: {status}, tokens: ' + ' '.join(map(str, tokens[currProduction])) + ', adding char: ' + c)
+            #print(f'currProduction: {currProduction}, escaped: {escaped}, status: {status}, tokens: ' + ' '.join(map(str, tokens[currProduction])) + ', adding char: ' + c)
             
             if (tokenEnd(status, c) and (c == ' ' or c == '\n')):
                 #Start new token
@@ -252,18 +252,18 @@ def containsAndTrue(dict, key):
 class State:
     def __init__(self, production, originPosition):
         self.production = production
-        self.position = 0
+        self.positions = [0]
         self.originPosition = originPosition
         self.values = []
     
     def __str__(self):
         str = f'{self.production.name.ljust(15)} → {{'
         for index, step in enumerate(self.production.steps):
-            if (index == self.position):
+            if (index in self.positions):
                 str += ' ȣ '
             
             str += step.name() + ' '
-        if (len(self.production.steps) == self.position):
+        if (len(self.production.steps) in self.positions):
             str += ' ȣ '
 
         str += '},'
@@ -274,39 +274,101 @@ class State:
     def name(self) -> str:
         return self.production.name
 
-    def nextIsTerminal(self):
-        term = isinstance(self.production.steps[self.position], Terminal)
+    def containsNextTerminal(self):
         #print(f'name: {self.name()}, pos: {self.position}, Terminal: {term}')
-        return term
+        for pos in self.positions:
+            if isinstance(self.production.steps[pos], Terminal):
+                return True
+        return False
 
+    """
     def match(self, input):
-        assert self.nextIsTerminal()
-        return self.production.steps[self.position].match(input)
+        assert self.containsNextTerminal()
+        
+        for pos in self.positions:
+            if self.production.steps[pos].match(input):
+                return True
+
+        return False
+     """
 
     def advance(self, state):
-        
-        self.position += 1
+        assert len(self.positions) == 1
+        newPos = self.positions[0] + 1
+        self.positions[0] = newPos
         self.values.append(state)
+        if not self.positions[0] == len(self.production.steps):
+            set = self.production.steps[self.positions[0]].token.settings
+            if containsAndTrue(set, 'opt'):
+                self.positions.append(newPos +1)
+
         #print(f'state: {self.production.name}, at {self.position} added {str(state)}, now contains {len(self.values)} values')
 
-    def isCompleted(self):
-        return self.position == len(self.production.steps)
+    def __isCompleted(self):
+        if len(self.positions) == 1 and self.positions[0] == len(self.production.steps):
+            return True
+        return False
 
-    def isinstance(self, NonTerminalName: str):
-        #print(f'state: isinstance NonTerminalName: {NonTerminalName}, self.position: {self.position}')
-        if not self.isCompleted():
-            next = self.production.steps[self.position]
-            if not isinstance(next, NonTerminal):
-                return False
-            return next.name() == NonTerminalName
-        else:
-            return False
+    def collapseFinished(self):
+        assert self.containsCompleted()
+        #self.positions = [len(self.production.steps)]
+        self.__collapse(len(self.production.steps))
+        assert self.__isCompleted()
 
-    def getNextName(self):
-        return self.production.steps[self.position].name()
+
+    def __collapse(self, position):
+        print(f'COLLAPSE position: {position}, len positions: {len(self.positions)}')
+        assert position in self.positions
+
+        for _ in range(min(self.positions), position):
+            # set these to None
+            self.values.append(None)
+
+        self.positions = [position]
+
+    def MatchThenAdvanceStateCopies(self, tok: Token):
+        print(f'MatchThenAdvanceStateCopies {str(tok)}')
+        retStates = []
+        for pos in self.positions:
+            if pos < len(self.production.steps):
+                if self.production.steps[pos].match(tok):
+                    newState = copy.deepcopy(self)
+                    newState.__collapse(pos)
+                    newState.advance(tok)
+                    retStates.append(newState)
+
+        #print(f'retStates: {str([str(stat) for stat in retStates])}')
+        return retStates
+
+    def containsCompleted(self):
+        return len(self.production.steps) in self.positions
+
+    def containsUncompleted(self):
+        for pos in self.positions:
+            if pos != len(self.production.steps):
+                return True
+        return False 
+
+    def containsNextInstance(self, NonTerminalName: str):
+        #print(f'state {self.name()}: \tisinstance NonTerminalName: {NonTerminalName}, self.position: {self.positions}')
+        
+        for pos in self.positions:
+            if not (pos == len(self.production.steps)):
+                next = self.production.steps[pos]
+                if isinstance(next, NonTerminal) and next.name() == NonTerminalName:
+                    return True
+        return False
+
+    def getNextNames(self) -> list[str]:
+        ret = []
+        for pos in self.positions:
+            if pos < len(self.production.steps):
+                ret.append(self.production.steps[pos].name())
+
+        return ret
 
     def fullStr(self):
-        tostr = lambda inVal: inVal.fullStr() if isinstance(inVal, State) else inVal
+        tostr = lambda inVal: inVal.fullStr() if isinstance(inVal, State) else (inVal if inVal != None else '')
         return f'{self.production.name} {{' + (', '.join(map(tostr, self.values))) + '}'
 
     def esrapSelf(self):
@@ -320,8 +382,8 @@ class State:
     """
     def __genIndexToIndices(self, compat, explicit):
         indexToIndex = {}
-        print(f'self production:       {self.production}')
-        print(f'compatible production: {compat}')
+        #print(f'self production:       {self.production}')
+        #print(f'compatible production: {compat}')
 
         count = 0
         for compatIndex, step in enumerate(compat.steps):
@@ -336,7 +398,7 @@ class State:
         return indexToIndex
 
     def esrap(self, productions: Productions):
-        
+        assert self.__isCompleted()
         #print(f'-------BEGIN ESRAP OF {self.name()}-------')
         #print(self.fullStr())
         otherProd = productions.getProduction(self.production.uuid)
@@ -356,9 +418,15 @@ class State:
         #Replace all
         strs = [None]*len(stepsB)
 
+        def optPad(val: str, settings):
+            string = val
+            if containsAndTrue(settings, 'pad'):
+                string = ' ' + string + ' '
+            return string
+
         # Set strings
         for i, step in enumerate(otherProd.steps):
-            if (isinstance(step, Terminal) and not step.rule.settings['regex']):
+            if (isinstance(step, Terminal) and not step.rule.settings['regex'] and not containsAndTrue(step.rule.settings, 'opt')):
                 string = step.rule.tok
                 if containsAndTrue(step.rule.settings, 'pad'):
                     string = ' ' + string + ' '
@@ -379,36 +447,34 @@ class State:
                 for compatIndex in compatIndices:
                     strs[compatIndex] = val.esrap(productions)
                 selfCountExludingStr += 1
-            else:
-                if i in indexToIndices:
-                    compatIndex = indexToIndices[i][0]
-                    assert(len(indexToIndices[i]) == 1)
-                    if (isinstance(val, Terminal)):
-                        isRegex = stepsA[i].rule.settings['regex']
-                        isRegexB = stepsB[compatIndex].rule.settings['regex']
-                        #print(f'isRegex: {isRegex}, isRegexB: {isRegexB}')
-                        assert(isRegex == isRegexB)
+            elif i in indexToIndices:
+                compatIndex = indexToIndices[i][0]
+                assert(len(indexToIndices[i]) == 1)
+                if (isinstance(val, Terminal)):
+                    isRegex = stepsA[i].rule.settings['regex']
+                    isRegexB = stepsB[compatIndex].rule.settings['regex']
+                    #print(f'isRegex: {isRegex}, isRegexB: {isRegexB}')
+                    assert(isRegex == isRegexB)
 
-                        strs[compatIndex] = val
-                        selfCountExludingStr += 1
-                    elif (isinstance(val, NonTerminal)):
-                        rule = stepsB[compatIndex].rule
-                        string = rule.tok
-                        if containsAndTrue(rule.settings, 'pad'):
-                            string = ' ' + string + ' '
-
-                        strs[compatIndex] = string
-                        selfCountExludingStr += 1
-                    elif (isinstance(val, str)):
-                        strs[compatIndex] = val
-                    else:
-                        typeName = type(val).__name__
-                        print(f'ERROR: {typeName}')
-                        assert False
+                    strs[compatIndex] = val
+                    selfCountExludingStr += 1
+                elif (isinstance(val, NonTerminal)):
+                    rule = stepsB[compatIndex].rule
+                    strs[compatIndex] = optPad(rule.tok, rule.settings)
+                    selfCountExludingStr += 1
+                elif (isinstance(val, str)):
+                    strs[compatIndex] = val
+                else:
+                    typeName = type(val).__name__
+                    print(f'ERROR: {typeName}')
+                    assert False
+            elif containsAndTrue(step.rule.settings, 'opt'):
+                rule = stepsB[i].rule 
+                strs[i] = optPad(val, rule.settings) if val != None else ''
         
         #print(f'-------END ESRAP OF {self.name()}-------')
         #print(strs)
-        strs = [str if str else 'BOOO' for str in strs ]
+        strs = [str if str != None else 'BOOO' for str in strs ]
         return ''.join(strs)
 
 
@@ -419,7 +485,8 @@ class Column():
 
     def containsState(self, name: str, index: int):
         for state in self.states:
-            if (state.production.name == name and state.position == index):
+            assert(len(state.positions) == 1)
+            if (state.production.name == name and state.positions[0] == index):
                 #print(f'{state.production.name} == {name}, {state.position} == {index}')
                 #print(f'containsState true')
                 return True
@@ -447,11 +514,13 @@ class Column():
 
 
 def complete(table, state: State):
-    print(f'complete {state.production.name}, {state.originPosition}')
+    # complete non terminals
+    #print(f'complete {state.production.name}, from: {state.originPosition}')
     colJ = table[state.originPosition].states
     newStates = []
     for stateJ in colJ:
-        if stateJ.isinstance(state.production.name):
+        if stateJ.containsNextInstance(state.production.name):
+            #print(f' completing: {stateJ.name()}')
             newState = copy.deepcopy(stateJ)
             newState.advance(state)
             newStates.append(newState)
@@ -484,9 +553,9 @@ def tokenize(input: str):
         return tokens
 
 def match(productions: Productions, inTokens: list[str], beginRules: list[uuid.UUID] = None):
-    print(str(productions))
+    #print(str(productions))
     tokenStr = '\n\t'.join([str(tok) for tok in inTokens])
-    print(f'tokenized: \n\t{tokenStr}, len: {len(inTokens)}')
+    #print(f'tokenized: \n\t{tokenStr}, len: {len(inTokens)}')
     #table = [Column(productions, [State(prod, 0) for prod in productions.productions])]
     topLevelName = productions.productions[0].name
     table = [Column(productions, []) for i in range(len(inTokens)+1)]
@@ -503,23 +572,31 @@ def match(productions: Productions, inTokens: list[str], beginRules: list[uuid.U
 
         #real work
         for state in col.states:
-            print(f'sate name: {state.production.name}')
-            if (state.isCompleted()):
+            print(f'sate name: {state.production.name}, contains completed: {state.containsCompleted()}, uncompleted: {state.containsUncompleted()}')
+            if (state.containsCompleted()):
+                #print('Is completed!')
                 col.states.extend(complete(table, state))
-            else:
-                if (tok != None and state.nextIsTerminal()):
-                    print('Scanning')
+            
+            if (state.containsUncompleted()):
+
+                if (tok != None and state.containsNextTerminal()):
+                    #print('Scanning')
+                    #TODO
+                    newStates = state.MatchThenAdvanceStateCopies(tok)
+                    table[currentChart+1].extend(newStates)
+                    """
                     if (state.match(tok)):
                         print('Scanning matched!')
                         #Scanning
                         newState = copy.copy(state)
                         newState.advance(tok)
-                        table[currentChart+1].append(newState)
+                        table[currentChart+1].append(newState) """
                 else:
-                    print('Predicting')
+                    #print('Predicting')
                     #Prediction
-                    productionName = state.getNextName()
-                    col.extend(col.predict(productionName, currentChart))
+                    productionNames = state.getNextNames()
+                    for name in productionNames:
+                        col.extend(col.predict(name, currentChart))
 
         #post
         print('\n'.join(map(str, col.states)))
@@ -527,7 +604,9 @@ def match(productions: Productions, inTokens: list[str], beginRules: list[uuid.U
     # Find result
     matches = []
     for status in table[-1].states:
-        if (status.originPosition == 0 and status.isCompleted() and status.production.name == topLevelName):
+        if (status.originPosition == 0 and status.containsCompleted() and status.production.name == topLevelName):
+            status.collapseFinished()
+            print(f'? {str(status)}')
             matches.append(status)
     
     print(f'MATCHES: {matches}')
