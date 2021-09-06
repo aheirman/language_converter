@@ -5,8 +5,7 @@ from .late import *
 
 
 class ESRAP(unittest.TestCase):
-
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_add(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([
@@ -23,7 +22,7 @@ class ESRAP(unittest.TestCase):
         esr = matched.esrap(Productions(prodA))
         self.assertEqual(esr, outputExpect)
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_add2(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([
@@ -40,7 +39,7 @@ class ESRAP(unittest.TestCase):
         esr = matched.esrap(Productions(prodA))
         self.assertEqual(esr, outputExpect)
     
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_add_rename(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([
@@ -62,7 +61,7 @@ class ESRAP(unittest.TestCase):
         esr = matched.esrap(Productions(prodB))
         self.assertEqual(esr, outputExpect)
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_mul_distributivity(self):
         uuids = [uuid.uuid4() for i in range(10)]
 
@@ -86,45 +85,104 @@ class ESRAP(unittest.TestCase):
         esr = matched.esrap(Productions(prodF))
         self.assertEqual(esr, outputExpect)
 
-    @unittest.skip("impl |")
+    def __check(self, prodA, prodB, input: str, output: str, begin = None):
+        matched = match(Productions(prodA), tokenize(input), begin)
+        print(f'input: {input}, matched: {matched}, expected output: {output}')
+        if output == None:
+            self.assertEqual(matched, None)
+        else:
+            self.assertNotEqual(matched, None)
+            vals = matched.fullStr()
+            esr = matched.esrap(Productions(prodA))
+            print(f'input: {input}, esr: {esr}, expected output: {output}')
+            self.assertEqual(esr, output)
+
+    #@unittest.skip("impl |")
     def test_or(self):
         uuids = [uuid.uuid4() for i in range(10)]
         begin = [uuids[0], uuids[1]]
         prodA = Productiongenerator.createAllProductions([(begin, 'number', '"a" | "b"')])
         inputs = ["a", "b"]
         for input in inputs: 
-            outputExpect = input
-            matched = match(Productions(prodA), tokenize(input), begin)
-
-            self.assertNotEqual(matched, None)
-            vals = matched.fullStr()
-            esr = matched.esrap(Productions(prodA))
-            self.assertEqual(esr, outputExpect)
+            self.__check(prodA, prodA, input, input, begin)
 
     def test_zeroOrMore(self):
         pass
 
+    #@unittest.skip("impl |")
     def test_atLeastOne(self):
-        pass
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a"{"alo": true, "pad": true}')])
+        inputs = [" a ", " a  a ", " a  a  a "]
+        for input in inputs:
+            self.__check(prodA, prodA, input, input)
+
+    #@unittest.skip("impl |")
+    def test_atLeastOne2(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'numbers', 'number{"alo": true}'),
+            ([uuids[1]], 'number', '"a"{"pad": true}'),
+            ])
+        inputs = [" a ", " a  a ", " a  a  a "]
+        for input in inputs:
+            self.__check(prodA, prodA, input, input)
 
     #@unittest.skip("impl |")
     def test_optional(self):
-        print('test_optional')
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a" "b"{"opt": true, "pad": true}')])
         inputs = ["a", "a b "]
         for input in inputs:
-            
-            outputExpect = input
-            matched = match(Productions(prodA), tokenize(input))
+            self.__check(prodA, prodA, input, input)
 
-            self.assertNotEqual(matched, None)
-            vals = matched.fullStr()
-            esr = matched.esrap(Productions(prodA))
-            print(f'input: {input}, esr: {esr}')
-            self.assertEqual(esr, outputExpect)
+    #@unittest.skip("impl |")
+    def test_optional2(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a" "b"{"opt": true, "pad": true} "a"{"pad": true}')])
+        inputs = ["a a ", "a b  a "]
+        for input in inputs:
+            self.__check(prodA, prodA, input, input)
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
+    def test_optional3(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a" "b"{"opt": true, "pad": true} "b"{"opt": true, "pad": true} "a"{"pad": true}')])
+        inputs = ["a a ", "a b  a ", "a b  b  a "]
+        outputs = copy.copy(inputs)
+        outputs[1] = None
+        for input, output in zip(inputs, outputs):
+            self.__check(prodA, prodA, input, output)
+        
+
+    #@unittest.skip("impl |")
+    def test_optional4(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a"{"opt": true, "pad": true} "b"')])
+        inputs = [" a b", "b"]
+        for input in inputs:
+            self.__check(prodA, prodA, input, input)
+
+    #@unittest.skip("impl |")
+    def test_optional5(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'number', '"a"{"opt": true, "pad": true} ab'),
+            ([uuids[1]], 'ab', '"ab"'),
+            ])
+        inputs = [" a ab", "ab"]
+        for input in inputs:
+            self.__check(prodA, prodA, input, input)
+
+    #@unittest.skip("impl |")
+    def test_optional_alo(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a"{"alo": true, "pad": true} "b"{"opt": true, "pad": false}')])
+        inputs = [" a ", " a b", " a  a b"]
+        for input in inputs:
+            self.__check(prodA, prodA, input, input)
+
+    #@unittest.skip("impl |")
     def test_bnf(self):
         uuids = [uuid.uuid4() for i in range(50)]
         begin = [uuids[0],  uuids[1]]
