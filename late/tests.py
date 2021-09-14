@@ -5,7 +5,7 @@ from .late import *
 
 
 class ESRAP(unittest.TestCase):
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_add(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([
@@ -22,7 +22,7 @@ class ESRAP(unittest.TestCase):
         esr = matched.esrap(Productions(prodA))
         self.assertEqual(esr, outputExpect)
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_add2(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([
@@ -39,7 +39,7 @@ class ESRAP(unittest.TestCase):
         esr = matched.esrap(Productions(prodA))
         self.assertEqual(esr, outputExpect)
     
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_add_rename(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([
@@ -61,7 +61,7 @@ class ESRAP(unittest.TestCase):
         esr = matched.esrap(Productions(prodB))
         self.assertEqual(esr, outputExpect)
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_mul_distributivity(self):
         uuids = [uuid.uuid4() for i in range(10)]
 
@@ -93,11 +93,11 @@ class ESRAP(unittest.TestCase):
         else:
             self.assertNotEqual(matched, None)
             vals = matched.fullStr()
-            esr = matched.esrap(Productions(prodA))
+            esr = matched.esrap(Productions(prodB))
             print(f'input: {input}, esr: {esr}, expected output: {output}')
             self.assertEqual(esr, output)
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_or(self):
         uuids = [uuid.uuid4() for i in range(10)]
         begin = [uuids[0], uuids[1]]
@@ -109,7 +109,21 @@ class ESRAP(unittest.TestCase):
     def test_zeroOrMore(self):
         pass
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
+    def test_or2(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        begin = [uuids[0], uuids[1]]
+        beginB = [uuids[0], uuids[1], uuids[2]]
+        prodA = Productiongenerator.createAllProductions([(begin, 'number', '"a" | "b"')])
+        prodB = Productiongenerator.createAllProductions([(beginB, 'number', '"a" | "b" | "c"')])
+        inputs = ["a", "b"]
+        for input in inputs: 
+            self.__check(prodA, prodB, input, input, begin)
+
+    def test_zeroOrMore(self):
+        pass
+
+    #@unittest.skip("impl |")
     def test_alo(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a"{"alo": true, "pad": true}')])
@@ -117,7 +131,7 @@ class ESRAP(unittest.TestCase):
         for input in inputs:
             self.__check(prodA, prodA, input, input)
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_alo2(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([
@@ -128,7 +142,7 @@ class ESRAP(unittest.TestCase):
         for input in inputs:
             self.__check(prodA, prodA, input, input)
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_alo3(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a"{"alo": true, "pad": true} "b"{"alo": true, "pad": true}')])
@@ -136,7 +150,7 @@ class ESRAP(unittest.TestCase):
         for input in inputs:
             self.__check(prodA, prodA, input, input)
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_alo4(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([
@@ -147,7 +161,7 @@ class ESRAP(unittest.TestCase):
         for input in inputs:
             self.__check(prodA, prodA, input, input)
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_alo5(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([
@@ -160,7 +174,7 @@ class ESRAP(unittest.TestCase):
             self.__check(prodA, prodA, input, input)
 
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_optional(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a" "b"{"opt": true, "pad": true}')])
@@ -168,7 +182,7 @@ class ESRAP(unittest.TestCase):
         for input in inputs:
             self.__check(prodA, prodA, input, input)
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_optional2(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a" "b"{"opt": true, "pad": true} "a"{"pad": true}')])
@@ -176,7 +190,7 @@ class ESRAP(unittest.TestCase):
         for input in inputs:
             self.__check(prodA, prodA, input, input)
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_optional3(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a" "b"{"opt": true, "pad": true} "b"{"opt": true, "pad": true} "a"{"pad": true}')])
@@ -187,7 +201,7 @@ class ESRAP(unittest.TestCase):
             self.__check(prodA, prodA, input, output)
         
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_optional4(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a"{"opt": true, "pad": true} "b"')])
@@ -206,7 +220,7 @@ class ESRAP(unittest.TestCase):
         for input in inputs:
             self.__check(prodA, prodA, input, input)
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_optional6(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([
@@ -217,7 +231,7 @@ class ESRAP(unittest.TestCase):
         for input in inputs:
             self.__check(prodA, prodA, input, input)
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_optional_alo(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a"{"alo": true, "pad": true} "b"{"opt": true, "pad": false}')])
@@ -226,7 +240,7 @@ class ESRAP(unittest.TestCase):
             self.__check(prodA, prodA, input, input)
 
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
     def test_optional_alo2(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([
@@ -234,13 +248,59 @@ class ESRAP(unittest.TestCase):
             ([uuids[1]], 'number_sep', 'number ","'),
             ([uuids[2]], 'number', '"a"'),
             ])
-        #inputs = ["a,a", "a,a,a", "a,a,a,a"]
-        inputs = ['a,a']
+        inputs = ["a,a", "a,a,a", "a,a,a,a", "a,", "a,a,", "a,a,a,"]
+        #inputs = ['a,a']
         for input in inputs:
             self.__check(prodA, prodA, input, input)
 
 
-    @unittest.skip("impl |")
+    #@unittest.skip("impl |")
+    def test_any(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'numbers', 'number_sep{"alo": true, "opt": true}'),
+            ([uuids[1]], 'number_sep', 'number ","'),
+            ([uuids[2]], 'number', '"a"'),
+            ])
+        inputs = ["a,", "a,a,", "a,a,a,"]
+        for input in inputs:
+            self.__check(prodA, prodA, input, input)
+
+    #@unittest.skip("impl |")
+    def test_any2(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'numbers', '"b"{"pad": true} number_sep{"alo": true, "opt": true}'),
+            ([uuids[1]], 'number_sep', 'number ","'),
+            ([uuids[2]], 'number', '"a"'),
+            ])
+        inputs = [" b ", " b a,", " b a,a,", " b a,a,a,"]
+        for input in inputs:
+            self.__check(prodA, prodA, input, input)
+
+    #@unittest.skip("impl |")
+    def test_any3(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'numbers', '"b"{"pad": true} "abc"{"alo": true, "opt": true, "pad": true}'),
+            ])
+        inputs = [" b ", " b  abc ", " b  abc  abc ", " b  abc  abc  abc "]
+        for input in inputs:
+            self.__check(prodA, prodA, input, input)
+
+    #@unittest.skip("impl |")
+    def test_any4(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'numbers', 'number_sep{"alo": true, "opt": true} "b"'),
+            ([uuids[1]], 'number_sep', 'number ","'),
+            ([uuids[2]], 'number', '"a"'),
+            ])
+        inputs = ["b", "a,b", "a,a,b", "a,a,a,b"]
+        for input in inputs:
+            self.__check(prodA, prodA, input, input)
+
+    #@unittest.skip("impl |")
     def test_bnf(self):
         uuids = [uuid.uuid4() for i in range(50)]
         begin = [uuids[0],  uuids[1]]

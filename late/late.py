@@ -4,6 +4,7 @@ import copy
 import uuid
 from enum import Enum
 import json
+import itertools
 
 #from late.helper import print
 
@@ -214,11 +215,26 @@ class Productiongenerator():
         prods = [Production(uuids[i], name, tokens, uuid_compat) for i, tokens in enumerate(tokenList)]
         return prods
 
+@staticmethod
+def UUIDgen(line: int) -> str:
+    i = 0
+    while True:
+        yield f'{line}-{i}'
+        i += 1
+
     @staticmethod
-    def createAllProductions(list):
+    def createAllProductions(list: list):
         prods = []
         for rule in list:
             prods.extend(Productiongenerator.__createProductions(*rule))
+        return prods
+
+    @staticmethod
+    def createAllProductionsGenUUID(list: list):
+        prods = []
+        for index, rule in enumerate(list):
+            uuids = self.__genUUID(index, rule[3])
+            prods.extend(Productiongenerator.__createProductions(uuids, *rule))
         return prods
 
 class Productions:
