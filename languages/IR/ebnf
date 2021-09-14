@@ -1,0 +1,8 @@
+identifier -> single | single "|" single 
+single = name |  string | regex
+name -> [a-Z0-9 ]*
+string = "\"" [a-zA-Z0-9\"\' ]* "\"" settings_block{"opt":true}
+regex -> [a-zA-Z0-9!<>#$\+-\*_\.!]* settings_block{"opt":true}
+separator -> "->"
+settings_block -> "{" [a-zA-Z0-9\"\' ]* "}"
+production ->  "identifier" "->"{"pad": true} 

@@ -1,0 +1,6 @@
+identifier -> single | single "|" single 
+single = "<" name ">" | tokens 
+name -> [a-Z0-9 ]*
+tokens -> [a-zA-Z0-9!<>#$\+-\*_\.!]*
+separator -> "->"
+production ->  "identifier" "->"{"pad": true} 
