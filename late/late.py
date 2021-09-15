@@ -215,12 +215,12 @@ class Productiongenerator():
         prods = [Production(uuids[i], name, tokens, uuid_compat) for i, tokens in enumerate(tokenList)]
         return prods
 
-@staticmethod
-def UUIDgen(line: int) -> str:
-    i = 0
-    while True:
-        yield f'{line}-{i}'
-        i += 1
+    @staticmethod
+    def UUIDgen(line: int) -> str:
+        i = 0
+        while True:
+            yield f'{line}-{i}'
+            i += 1
 
     @staticmethod
     def createAllProductions(list: list):
