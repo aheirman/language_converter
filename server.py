@@ -23,7 +23,7 @@ def test_add_rename(input):
         ([uuids[1]], 'term', 'number "plus"{"pad": true} term'),
         ([uuids[2]], 'term', 'number'),
         ([uuids[3]], 'number', '[0-9]')])
-    matched = match(Productions(prodA), tokenize(input))
+    matched = match(Productions(prodA), tokenizeFromJson(json.loads(input)))
 
     if matched != None:
         vals = matched.fullStr()

@@ -690,7 +690,21 @@ def tokenize(input: str):
         tokens = [tok for tok in tokens if (len(tok) != 0)]
         return tokens
 
-
+def tokenizeFromJson(code: list):
+    tokens = []
+    for line in code:
+        print(f'line: {line}')
+        for obj in line['words']:
+            print(f'obj: {obj}')
+            #If type is 1 it;s modified
+            if (obj['style'] == 1):
+                newTokens = tokenize(obj['word'])
+                tokens.extend(newTokens)
+            else:
+                tokens.append(obj['word'])
+    
+    tokens = [tok for tok in tokens if (len(tok) != 0)]
+    return tokens
 
 def match(productions: Productions, inTokens: list[str], beginRules: list[uuid.UUID] = None):
     print(str(productions))
