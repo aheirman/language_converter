@@ -61,6 +61,19 @@ class ESRAP(unittest.TestCase):
         esr = matched.esrap(Productions(prodB))
         self.assertEqual(esr, outputExpect)
 
+
+    def __check(self, prodA, prodB, input: str, output: str, begin = None):
+        matched = match(Productions(prodA), tokenize(input), begin)
+        print(f'input: {input}, matched: {matched}, expected output: {output}')
+        if matched == None:
+            self.assertEqual(output, None)
+        else:
+            self.assertNotEqual(output, None)
+            vals = matched.fullStr()
+            esr = matched.esrap(Productions(prodB))
+            print(f'input: {input}, esr: {esr}, expected output: {output}')
+            self.assertEqual(esr, output)
+
     #@unittest.skip("impl |")
     def test_mul_distributivity(self):
         uuids = [uuid.uuid4() for i in range(10)]
@@ -76,26 +89,59 @@ class ESRAP(unittest.TestCase):
             ([uuids[2]], 'term', 'number'),
             ([uuids[3]], 'number', '[0-9]')])
         
-        input = "1*(2+3)"
-        outputExpect = '(1*(2))+(1*(3))'
-        matched = match(Productions(prodD), tokenize(input))
+        inputs = ["1*(2+3)"]
+        outputs = ['(1*(2))+(1*(3))']
 
-        self.assertNotEqual(matched, None)
-        vals = matched.fullStr()
-        esr = matched.esrap(Productions(prodF))
-        self.assertEqual(esr, outputExpect)
+        for input, output in zip(inputs, outputs): 
+            self.__check(prodD, prodF, input, output)
 
-    def __check(self, prodA, prodB, input: str, output: str, begin = None):
-        matched = match(Productions(prodA), tokenize(input), begin)
-        print(f'input: {input}, matched: {matched}, expected output: {output}')
-        if output == None:
-            self.assertEqual(matched, None)
-        else:
-            self.assertNotEqual(matched, None)
-            vals = matched.fullStr()
-            esr = matched.esrap(Productions(prodB))
-            print(f'input: {input}, esr: {esr}, expected output: {output}')
-            self.assertEqual(esr, output)
+    def test_reorder(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'calculation', 'term{"id": 0} "," term{"id": 1} "," term{"id": 2}'),
+            ([uuids[1]], 'term', '[0-9]')])
+        
+        prodB = Productiongenerator.createAllProductions([
+            ([uuids[2]], 'calculation', 'term{"id": 2} "," term{"id": 1} "," term{"id": 0}', uuids[0]),
+            ([uuids[1]], 'term', '[0-9]')])
+
+        inputs = ["1,2,3"]
+        outputs = ['3,2,1']
+
+        for input, output in zip(inputs, outputs): 
+            self.__check(prodA, prodB, input, output)
+
+    def test_reorder2(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'calculation', 'term{"id": 0} "," term{"id": 1} "," term{"id": 2}'),
+            ([uuids[1]], 'term', '[0-9]')])
+        
+        prodB = Productiongenerator.createAllProductions([
+            ([uuids[2]], 'calculation', 'term{"id": 2, "pad":true} term{"id": 1, "pad":true} term{"id": 0, "pad":true}', uuids[0]),
+            ([uuids[1]], 'term', '[0-9]')])
+
+        inputs = ["1,2,3"]
+        outputs = [' 3  2  1 ']
+
+        for input, output in zip(inputs, outputs): 
+            self.__check(prodA, prodB, input, output)
+
+    def test_reorder3(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'calculation', 'term{"id": 0} "," term{"id": 1} "," term{"id": 2}'),
+            ([uuids[1]], 'term', '[0-9]{"id": 0}')])
+        
+        prodB = Productiongenerator.createAllProductions([
+            ([uuids[2]], 'calculation', 'term2{"id": 2} term2{"id": 1} term2{"id": 0}', uuids[0]),
+            ([uuids[3]], 'term2', ' "(" [0-9]{"id": 0} ")" ', uuids[1])])
+
+        inputs = ["1,2,3"]
+        outputs = ['(3)(2)(1)']
+
+        for input, output in zip(inputs, outputs): 
+            self.__check(prodA, prodB, input, output)
 
     #@unittest.skip("impl |")
     def test_or(self):
@@ -119,6 +165,46 @@ class ESRAP(unittest.TestCase):
         inputs = ["a", "b"]
         for input in inputs: 
             self.__check(prodA, prodB, input, input, begin)
+
+    #@unittest.skip("impl |")
+    def test_or3(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        begin = [uuids[0], uuids[1]]
+        prodA = Productiongenerator.createAllProductions([(begin, 'number', '"a" | [0-9]')])
+        inputs = ["a", "0", "9"]
+        for input in inputs: 
+            self.__check(prodA, prodA, input, input, begin)
+
+    #@unittest.skip("impl |")
+    def test_or4(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        begin = [uuids[0], uuids[1]]
+        beginB = [uuids[0], uuids[1], uuids[2]]
+        prodA = Productiongenerator.createAllProductions([(begin, 'number', '"a" | [0-9]')])
+        prodB = Productiongenerator.createAllProductions([(begin, 'number', '"a" | [0-9] "BOOP"')])
+        inputs = ["a", "0", "9"]
+        outputs = ["a", "0BOOP", "9BOOP"]
+        
+        for input, output in zip(inputs, outputs): 
+            self.__check(prodA, prodB, input, output, begin)
+
+    #@unittest.skip("impl |")
+    def test_or4(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        begin = [uuids[0], uuids[1]]
+        prodA = Productiongenerator.createAllProductions([
+            (begin, 'number', '"a" | [0-9] txt'),
+            ([uuids[4]], 'txt', ' "BOOPly" ')])
+        prodB = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'number', '"a"'),
+            ([uuids[3]], 'number', '[0-9]{"id": 0} txt{"id": 1}', uuids[1]),
+            ([uuids[4]], 'txt', ' "BOOPly" ')
+            ])
+        inputs = ["a", "0 BOOPly", "9 BOOPly"]
+        outputs = ["a", "0BOOPly", "9BOOPly"]
+        
+        for input, output in zip(inputs, outputs): 
+            self.__check(prodA, prodB, input, output, begin)
 
     def test_zeroOrMore(self):
         pass

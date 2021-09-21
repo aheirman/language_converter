@@ -25,7 +25,7 @@ class Token:
         self.settings = settings
 
     def __str__(self):
-        return f'{{token: {self.tok}, settings: {self.settings}}}' if self.settings != {} else f'{{token: {self.tok}}}'
+        return f'{{token: "{self.tok}", settings: {self.settings}}}' if self.settings != {} else f'{{token: {self.tok}}}'
 
 class NonTerminal:
     def __init__(self, tok):
@@ -73,14 +73,18 @@ class Terminal:
 class Production:
     def process(self, productions):
         steps = []
+        #print(f'Production tokens: {[str(t) for t in self.tokens]}')
         for tok in self.tokens:
-            print(f'production name: {self.name}, process token: {tok}')
+            #print(f'production process name: {self.name}, token: "{tok}"')
             
             if containsAndTrue(tok.settings, "regex") or containsAndTrue(tok.settings, "quote"):
                 steps.append(Terminal(tok))
             else:
                 prod = productions.productionWithNameExists(tok.tok)
-                assert prod
+                if prod == False:
+                    print(f'{bcolors.FAIL}Production with name {tok.tok} missing!{bcolors.ENDC}')
+                    assert False
+
                 steps.append(NonTerminal(tok))
         self.steps = steps
     
@@ -91,13 +95,17 @@ class Production:
         self.uuid_compat = uuid_compat
 
     def __str__(self):
-
-        #tokensStr = ' '.join([str(elem) for elem in self.tokens])
-        stepStr   = '\n\t' + '\n\t'.join([str(elem) for elem in self.steps])
-        #return f'Production {{ name: {self.name}  tokens: [ {tokensStr} ], {stepStr} }}'
-        uuidCompatStr = f', uuid_compat: {self.uuid_compat}' if self.uuid_compat != None else ''
-        return f'Production {{ name: {self.name}, {stepStr}{uuidCompatStr}'
-        #return f'Production {{ name: {self.name}, {tokensStr} }}'
+        if hasattr(self, 'steps'):
+            #tokensStr = ' '.join([str(elem) for elem in self.tokens])
+            stepStr   = '\n\t' + '\n\t'.join([str(elem) for elem in self.steps])
+            #return f'Production {{ name: {self.name}  tokens: [ {tokensStr} ], {stepStr} }}'
+            uuidCompatStr = f', uuid_compat: {self.uuid_compat}' if self.uuid_compat != None else ''
+            return f'Production {{ uuid: {self.uuid}, name: {self.name}, {stepStr}{uuidCompatStr}}}'
+            #return f'Production {{ name: {self.name}, {stepStr}{uuidCompatStr}}}'
+        else:
+            tokensStr = ' '.join([str(elem) for elem in self.tokens])
+            #return f'Production {{ uuid: {self.uuid}, name: {self.name}, {tokensStr} }}'
+            return f'Production {{ name: {self.name}, {tokensStr} }}'
 
     def len(self):
         return len(self.steps)
@@ -105,7 +113,8 @@ class Production:
 class TokenizeSettings(Enum):
     PRE = 0
     NORMAL = 1
-    QUOTE = 2
+    QUOTE_DOUBLE = 2
+    QUOTE_SINGLE = 8
     REGEX = 6
     REGEXPOSEND = 7
     VAL_FINISHED = 3
@@ -163,7 +172,11 @@ class Productiongenerator():
                     currProduction += 1
                     tokens.append([])
                 elif ( c == '"'):
-                    status = TokenizeSettings.QUOTE
+                    status = TokenizeSettings.QUOTE_DOUBLE
+                    settings['quote'] = True
+                    settings['regex'] = False
+                elif ( c == '\''):
+                    status = TokenizeSettings.QUOTE_SINGLE
                     settings['quote'] = True
                     settings['regex'] = False
                 elif ( c == '['):
@@ -181,15 +194,17 @@ class Productiongenerator():
                     status = TokenizeSettings.REGEXPOSEND
                 else:
                     curr += c
-            elif (status == TokenizeSettings.QUOTE and not escaped and c == '"'):
-                    status = TokenizeSettings.VAL_FINISHED
+            elif (status == TokenizeSettings.QUOTE_DOUBLE and not escaped and c == '"'):
+                status = TokenizeSettings.VAL_FINISHED
+            elif (status == TokenizeSettings.QUOTE_SINGLE and not escaped and c == '\''):
+                status = TokenizeSettings.VAL_FINISHED
             elif ((status in [TokenizeSettings.VAL_FINISHED, TokenizeSettings.NORMAL, TokenizeSettings.REGEXPOSEND]) and c == '{'):
                 status = TokenizeSettings.SETTINGS_BLOCK
                 strSettings += c
             elif (status == TokenizeSettings.SETTINGS_BLOCK and c == '}'):
                 status = TokenizeSettings.END
                 strSettings += c
-            elif (status in [TokenizeSettings.NORMAL, TokenizeSettings.QUOTE, TokenizeSettings.REGEXPOSEND]):
+            elif (status in [TokenizeSettings.NORMAL, TokenizeSettings.QUOTE_DOUBLE, TokenizeSettings.QUOTE_SINGLE, TokenizeSettings.REGEXPOSEND]):
                 if (c == '\\' and not escaped):
                     nextEscaped = True
                 else:
@@ -478,7 +493,7 @@ class State:
             compat may have more non terminals
             That's why it is on the lhs
     """
-    def __genIndexToIndices(self, compat, explicit):
+    def __genIndexToIndices(self, compat: Production, explicit):
         indexToIndex = {}
         #print(f'self production:       {self.production}')
         #print(f'compatible production: {compat}')
@@ -487,7 +502,14 @@ class State:
         for compatIndex, step in enumerate(compat.steps):
             settings = step.token.settings
             if State.__isStored(step, settings):
-                selfIndex = step.token.settings['id'] if explicit else count
+                if explicit:
+                    if not 'id' in step.token.settings:
+                        print(f'{bcolors.FAIL}Production with name {compat.name} is missing an id setting for step: {compatIndex}!{bcolors.ENDC}')
+                        assert False
+                    selfIndex = step.token.settings['id']
+                else:
+                    selfIndex = count
+                
                 if (not selfIndex in indexToIndex):
                     indexToIndex[selfIndex] = []
                     #print(f'empty dictionary array at : {selfIndex}')
@@ -506,7 +528,9 @@ class State:
             #print(f'=====CONVERSIONS ARE NEEDED=====')
             # conversions are needed
             otherProd = productions.getCompatableProduction(self.production.uuid)
+            assert otherProd != None
             equal = False
+
 
         stepsA = self.production.steps
         stepsB = otherProd.steps
@@ -525,7 +549,7 @@ class State:
 
         def handleConversion(productions, settings, val) -> str:
             if isinstance(val, State):
-                return val.esrap(productions)
+                return optPad(val.esrap(productions), settings)
             elif isinstance(val, Terminal):
                 return optPad(val, settings)
             elif isinstance(val, NonTerminal):
@@ -565,7 +589,8 @@ class State:
                 compatIndices = indexToIndices[selfCountExludingStr]
                 
                 for compatIndex in compatIndices:
-                    strs[compatIndex] = handleConversion(productions, None, val)
+                    settings = stepsB[compatIndex].token.settings
+                    strs[compatIndex] = handleConversion(productions, settings, val)
                 selfCountExludingStr += 1
 
             #Check key    
@@ -692,10 +717,11 @@ def tokenize(input: str):
 
 def tokenizeFromJson(code: list):
     tokens = []
+    #print(f'code: {code}')
     for line in code:
-        print(f'line: {line}')
+        #print(f'line: {line}')
         for obj in line['words']:
-            print(f'obj: {obj}')
+            #print(f'obj: {obj}')
             #If type is 1 it;s modified
             if (obj['style'] == 1):
                 newTokens = tokenize(obj['word'])

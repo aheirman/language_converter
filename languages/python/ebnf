@@ -1,0 +1,7 @@
+#https://www.python.org/dev/peps/pep-0617/#s-e
+production →  name separator{"pad": true} "|"{"opt": true} to_match
+to_match → token | token "|" to_match
+token → name | '\'' tokens '\''
+name → [a-zA-Z0-9]*
+tokens → [a-zA-Z0-9!<>#$\\+\\-\\*_\\.!]*
+separator → ":"

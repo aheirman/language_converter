@@ -1,1 +1,1 @@
-python ../late/server.py
+python3.10 ../late/server.py
