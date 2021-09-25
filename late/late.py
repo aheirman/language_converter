@@ -1,311 +1,17 @@
 from __future__ import annotations
-import re
+
 import copy
 import uuid
-from enum import Enum
-import json
 import itertools
+import pydot
+#import graphviz
 
-#from late.helper import print
+from late.helper import *
+from late.parser import *
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
-class Token:
-    def __init__(self, tok, settings):
-        self.tok = tok
-        self.settings = settings
-
-    def __str__(self):
-        return f'{{token: "{self.tok}", settings: {self.settings}}}' if self.settings != {} else f'{{token: {self.tok}}}'
-
-class NonTerminal:
-    def __init__(self, tok):
-        self.token = tok
-        self.token.settings.pop('regex', None)
-
-    def __str__(self):
-        return f'{{NonTerminal: {self.token}}}'
-
-    def name(self):
-        return self.token.tok
-
-class Terminal:
-    def __init__(self, rule: Token):
-        self.token = rule
-        #print(f'{self.token}, {self.token.settings}')
-
-        settings = self.token.settings
-        if (settings['regex']):
-            self.rule = rule
-            #print(f'Terminal with regex rule: {self.token.tok}')
-            self.reg = re.compile(self.token.tok)
-        else:
-            self.rule = rule
-            #print(f"Terminal with rule: {self.token.tok}")
-
-    
-    def match(self, input: str):
-        if (self.token.settings['regex']):
-            #print(f'Terminal regex match: "{input}", "{self.rule}"')
-            r = self.reg.match(input)
-            t = False if r==None else (r.start() == 0)
-            #print(f'Terminal regex match: "{input}", "{self.rule}, res: {r}, bool: {t}"')
-            return t
-        else:
-            #print(f'Terminal match: "{input}", "{self.rule.tok}", "{input == self.rule.tok}"')
-            return input == self.rule.tok
-
-    def name(self):
-        return self.rule.tok
-
-    def __str__(self):
-        return f'{{Terminal: "{self.rule}}}'
-
-class Production:
-    def process(self, productions):
-        steps = []
-        #print(f'Production tokens: {[str(t) for t in self.tokens]}')
-        for tok in self.tokens:
-            #print(f'production process name: {self.name}, token: "{tok}"')
-            
-            if containsAndTrue(tok.settings, "regex") or containsAndTrue(tok.settings, "quote"):
-                steps.append(Terminal(tok))
-            else:
-                prod = productions.productionWithNameExists(tok.tok)
-                if prod == False:
-                    print(f'{bcolors.FAIL}Production with name {tok.tok} missing!{bcolors.ENDC}')
-                    assert False
-
-                steps.append(NonTerminal(tok))
-        self.steps = steps
-    
-    def __init__(self, uuid, name: str, tokens: list[Token], uuid_compat = None):
-        self.name = name
-        self.tokens = tokens
-        self.uuid = uuid
-        self.uuid_compat = uuid_compat
-
-    def __str__(self):
-        if hasattr(self, 'steps'):
-            #tokensStr = ' '.join([str(elem) for elem in self.tokens])
-            stepStr   = '\n\t' + '\n\t'.join([str(elem) for elem in self.steps])
-            #return f'Production {{ name: {self.name}  tokens: [ {tokensStr} ], {stepStr} }}'
-            uuidCompatStr = f', uuid_compat: {self.uuid_compat}' if self.uuid_compat != None else ''
-            return f'Production {{ uuid: {self.uuid}, name: {self.name}, {stepStr}{uuidCompatStr}}}'
-            #return f'Production {{ name: {self.name}, {stepStr}{uuidCompatStr}}}'
-        else:
-            tokensStr = ' '.join([str(elem) for elem in self.tokens])
-            #return f'Production {{ uuid: {self.uuid}, name: {self.name}, {tokensStr} }}'
-            return f'Production {{ name: {self.name}, {tokensStr} }}'
-
-    def len(self):
-        return len(self.steps)
-
-class TokenizeSettings(Enum):
-    PRE = 0
-    NORMAL = 1
-    QUOTE_DOUBLE = 2
-    QUOTE_SINGLE = 8
-    REGEX = 6
-    REGEXPOSEND = 7
-    VAL_FINISHED = 3
-    SETTINGS_BLOCK = 4
-    END = 5
-
-class Productiongenerator():
-    @staticmethod
-    def tokenize(input):
-        #print(f'Production tokenize {input}')
-        tokens = [[]]
-        currProduction = 0
-        curr = ''
-        strSettings = ''
-        status = TokenizeSettings.PRE
-        defSettings = {}
-        settings = copy.copy(defSettings)
-        escaped = False
-        nextEscaped = False
-
-        def tokenEnd(status, c):
-            if (status in [
-                TokenizeSettings.NORMAL,
-                TokenizeSettings.END,
-                TokenizeSettings.VAL_FINISHED,
-                TokenizeSettings.REGEXPOSEND]):
-                return True
-            return False
-
-        for c in input:
-            escaped = nextEscaped
-            nextEscaped = False
-            #print(f'currProduction: {currProduction}, escaped: {escaped}, status: {status}, tokens: ' + ' '.join(map(str, tokens[currProduction])) + ', adding char: ' + c)
-            
-            if (tokenEnd(status, c) and (c == ' ' or c == '\n')):
-                #Start new token
-                #print(f'settings: {settings} strSettings: {strSettings}')
-                if (strSettings != ''):
-                    settings.update(json.loads(strSettings))
-                    #print(f'---settings: {settings}')
-                tokens[currProduction].append(Token(curr, settings))
-                status = TokenizeSettings.PRE
-
-                settings = copy.copy(defSettings)
-                curr = ''
-                strSettings = ''
-                if c == '\n':
-                    #A real token!
-                    tokens[currProduction].append(Token('\n', {}))
-
-            elif (status == TokenizeSettings.PRE):
-                if (c == ' '):
-                    pass
-                elif (c == '|'):
-                    currProduction += 1
-                    tokens.append([])
-                elif ( c == '"'):
-                    status = TokenizeSettings.QUOTE_DOUBLE
-                    settings['quote'] = True
-                    settings['regex'] = False
-                elif ( c == '\''):
-                    status = TokenizeSettings.QUOTE_SINGLE
-                    settings['quote'] = True
-                    settings['regex'] = False
-                elif ( c == '['):
-                    status = TokenizeSettings.REGEX
-                    settings['regex'] = True
-                    curr += c
-                else:
-                    status = TokenizeSettings.NORMAL
-                    curr += c
-            elif (status == TokenizeSettings.REGEX):
-                if (c == '\\' and not escaped):
-                    nextEscaped = True
-                elif (c == ']' and not escaped):
-                    curr += c
-                    status = TokenizeSettings.REGEXPOSEND
-                else:
-                    curr += c
-            elif (status == TokenizeSettings.QUOTE_DOUBLE and not escaped and c == '"'):
-                status = TokenizeSettings.VAL_FINISHED
-            elif (status == TokenizeSettings.QUOTE_SINGLE and not escaped and c == '\''):
-                status = TokenizeSettings.VAL_FINISHED
-            elif ((status in [TokenizeSettings.VAL_FINISHED, TokenizeSettings.NORMAL, TokenizeSettings.REGEXPOSEND]) and c == '{'):
-                status = TokenizeSettings.SETTINGS_BLOCK
-                strSettings += c
-            elif (status == TokenizeSettings.SETTINGS_BLOCK and c == '}'):
-                status = TokenizeSettings.END
-                strSettings += c
-            elif (status in [TokenizeSettings.NORMAL, TokenizeSettings.QUOTE_DOUBLE, TokenizeSettings.QUOTE_SINGLE, TokenizeSettings.REGEXPOSEND]):
-                if (c == '\\' and not escaped):
-                    nextEscaped = True
-                else:
-                    curr += c
-            elif (status == TokenizeSettings.SETTINGS_BLOCK):
-                strSettings += c
-            else:
-                print(f'ERROR: status: {status}')
-                assert False
-
-        if(curr != ''):
-            #print(f'strSettings: {strSettings}')
-            if (strSettings != ''):
-                settings.update(json.loads(strSettings))
-            tokens[currProduction].append(Token(curr, settings))
-        
-        #print(f'Production tokenize tokens: {str([str(tok) for tok in tokens])}')
-        return tokens
-
-    @staticmethod
-    def __createProductions(uuids, name, input: str, uuid_compat = None) -> list[Production]:
-        tokenList = Productiongenerator.tokenize(input)
-        prods = [Production(uuids[i], name, tokens, uuid_compat) for i, tokens in enumerate(tokenList)]
-        return prods
-
-    @staticmethod
-    def UUIDgen(line: int) -> str:
-        i = 0
-        while True:
-            yield f'{line}-{i}'
-            i += 1
-
-    @staticmethod
-    def createAllProductions(list: list):
-        prods = []
-        for rule in list:
-            prods.extend(Productiongenerator.__createProductions(*rule))
-        return prods
-
-    @staticmethod
-    def createAllProductionsGenUUID(list: list):
-        prods = []
-        for index, rule in enumerate(list):
-            uuids = self.__genUUID(index, rule[3])
-            prods.extend(Productiongenerator.__createProductions(uuids, *rule))
-        return prods
-
-class Productions:
-
-    def generateMap(self):
-        self.RuleProdMap = dict(zip([prod.stdandard for prod in self.productions], [prod.stdandard for prod in self.productions]))
-
-    def __init__(self, productions: list[Production]):
-        self.productions = productions
-        for prod in self.productions:
-            prod.process(self)
-
-        self.__checkForErrors()
-
-    def __checkForErrors(self):
-        uuids = []
-        for prod in self.productions:
-            if prod.uuid in uuids:
-                assert False
-            else:
-                uuids.append(prod.uuid)
-
-    def __str__(self):
-        return '\n'.join([str(elem) for elem in self.productions])
-
-    def getProduction(self, uuid):
-        for prod in self.productions:
-            if (prod.uuid == uuid):
-                return prod
-        return None
-
-    def getCompatableProduction(self, uuid):
-        for prod in self.productions:
-            if (prod.uuid_compat == uuid):
-                return prod
-        return None
-
-    def productionWithNameExists(self, name: str):
-        for prod in self.productions:
-            if (prod.name == name):
-                return True
-        return False
-
-    def getEquivalentProduction(self, standardese) -> Production:
-        pass
-
-
-def containsAndTrue(dict, key):
-    return (key in dict) and (dict[key] == True)
-
-def containsAndTrueAny(dict, keys):
-    for key in keys:
-        if (key in dict) and (dict[key] == True):
-            return True
-    return False
-
+class UnwrapMethod(Enum):
+    ESRAP = 1,
+    DOT = 2
 
 class State:
     def __init__(self, production, originPosition):
@@ -313,6 +19,7 @@ class State:
         self.originPosition = originPosition
         self.values = []
         self.position = 0
+        self.uuid = uuid.uuid4()
     
     def __skipToPosPad(self, pos):
         assert self.position <= pos
@@ -440,13 +147,13 @@ class State:
         #for index, pos in enumerate(self.positions):
 
         pos = self.position
-        print(f'MatchThenAdvanceStateCopies index: pos: {pos}, tok: {tok}')
+        #print(f'MatchThenAdvanceStateCopies index: pos: {pos}, tok: {tok}')
         if pos < self.production.len():
-            print(f'MatchThenAdvanceStateCopies Match?')
+            #print(f'MatchThenAdvanceStateCopies Match?')
             TernOrNonTerm = self.production.steps[pos]
             if isinstance(TernOrNonTerm, Terminal):
                 if TernOrNonTerm.match(tok):
-                    print(f'MatchThenAdvanceStateCopies Matched')
+                    #print(f'MatchThenAdvanceStateCopies Matched')
                     newState = copy.deepcopy(self)
                     retStates.extend(newState.advance(tok))
                     retStates.append(newState)
@@ -480,9 +187,6 @@ class State:
 
         return f'{self.production.name} {{' + (', '.join(map(toStr, self.values))) + '}'
 
-    def esrapSelf(self):
-        req = lambda x: x.esrap() if isinstance(x, State) else x
-        return ''.join(map(req, self.values))
 
     @staticmethod
     def __isStored(step, settings):
@@ -518,7 +222,94 @@ class State:
                 count += 1
         return indexToIndex
 
-    def esrap(self, productions: Productions):
+    def esrap(self, productions: Productions) -> str:
+        return self.__unwarp(productions, UnwrapMethod.ESRAP)
+
+    def getDot(self, productions: Productions):
+        
+        
+        graph = pydot.Dot('my_graph', graph_type='graph', bgcolor='white')
+        self.__unwarp(productions, UnwrapMethod.DOT, graph)
+        graph.write_raw('output_raw.dot')
+
+        graph.write_png('output.png')
+
+    @staticmethod
+    def __createNode(string: str, settings, graph):
+        name = uuid.uuid4().hex
+        node = pydot.Node(name, label=string, shape='box')
+        graph.add_node(node)
+        return name
+
+    @staticmethod
+    def __createNodeWithDeps(string: str, deps: list[str], settings, graph, name: Optional[str] = None):
+        if name == None:
+            name = uuid.uuid4().hex
+
+        node = pydot.Node(name, label=string, shape='box')
+        graph.add_node(node)
+        for dep in deps:
+            my_edge = pydot.Edge(name, dep, color='black')
+            graph.add_edge(my_edge)
+        return name
+
+    @staticmethod
+    def __createNodeFromList(string: str, strings: list[str], settings, graph, name: Optional[str] = None):
+        if name == None:
+            name = uuid.uuid4().hex
+
+        node = pydot.Node(name, label=string, shape='box')
+        graph.add_node(node)
+        for string in strings:
+            my_edge = pydot.Edge(name, State.__createNode(string, settings, graph), color='orange')
+            graph.add_edge(my_edge)
+        return name
+
+    @staticmethod
+    def __optPad(val: str, settings):
+        string = val
+        if containsAndTrue(settings, 'pad'):
+            string = ' ' + string + ' '
+        return string
+
+    @staticmethod
+    def __handleConversion(productions, settings, val, method: UnwrapMethod, graph: Optional[str] = None) -> str:
+        match method:
+            case UnwrapMethod.ESRAP:
+                func = State.__optPad
+            case UnwrapMethod.DOT:
+                func = lambda *args: State.__createNode(*args, graph)
+
+
+        if isinstance(val, State):
+            state = val.__unwarp(productions, method, graph)
+            match method:
+                case UnwrapMethod.ESRAP:
+                    ret = State.__optPad(state, settings)
+                case UnwrapMethod.DOT:
+                    ret = state
+            return ret
+        elif isinstance(val, Terminal):
+            return func(val, settings)
+        elif isinstance(val, NonTerminal):
+            return func(val, settings)
+        elif isinstance(val, str):
+            return func(val, settings)
+        elif isinstance(val, list):
+            # DO NOT PAD
+            strings = [State.__handleConversion(productions, settings, v, method, graph) for v in val]
+            
+            match method:
+                case UnwrapMethod.ESRAP:
+                    ret = ''.join(strings)
+                case UnwrapMethod.DOT:
+                   ret = State.__createNodeFromList('list', strings, settings, graph)
+            return ret
+        else:
+            assert False
+        
+
+    def __unwarp(self, productions: Productions, method: UnwrapMethod, graph: Optional[str] = None) -> str:
         assert self.isCompleted()
         #print(f'-------BEGIN ESRAP OF {self.name()}-------')
         #print(self.fullStr())
@@ -536,69 +327,52 @@ class State:
         stepsB = otherProd.steps
 
         indexToIndices = self.__genIndexToIndices(otherProd, not equal)
-        print(f'indexToIndices: {indexToIndices}')
+        #print(f'indexToIndices: {indexToIndices}')
 
-        #Replace all
-        strs = [None]*len(stepsB)
 
-        def optPad(val: str, settings):
-            string = val
-            if containsAndTrue(settings, 'pad'):
-                string = ' ' + string + ' '
-            return string
-
-        def handleConversion(productions, settings, val) -> str:
-            if isinstance(val, State):
-                return optPad(val.esrap(productions), settings)
-            elif isinstance(val, Terminal):
-                return optPad(val, settings)
-            elif isinstance(val, NonTerminal):
-                return optPad(val, settings)
-            elif isinstance(val, str):
-                return optPad(val, settings)
-            elif isinstance(val, list):
-                # DO NOT PAD
-                return ''.join([handleConversion(productions, settings, v) for v in val])
-            else:
-                assert False
-
-            
+        strings = [None]*len(stepsB)
 
         # Set strings
         for i, step in enumerate(otherProd.steps):
             if (isinstance(step, Terminal) and not step.rule.settings['regex'] and not containsAndTrue(step.rule.settings, 'opt') and not containsAndTrue(step.rule.settings, 'alo')):
                 string = step.rule.tok
-                if containsAndTrue(step.rule.settings, 'pad'):
+                settings = step.rule.settings
+                if containsAndTrue(settings, 'pad'):
                     string = ' ' + string + ' '
-                strs[i] = string
+                match method:
+                    case UnwrapMethod.ESRAP:
+                        strings[i] = string
+                    case UnwrapMethod.DOT:
+                        strings[i] = State.__createNode(string, settings, graph)
+                
         # Set (Non)Terminals
 
-        selfCountExludingStr = 0
+        selfCountExludingConst = 0
 
-        print(f'stepsA: {stepsA}, self.values: {self.values}')
+        #print(f'stepsA: {stepsA}, self.values: {self.values}')
         assert len(stepsA) == len(self.values)
         for i, step in enumerate(stepsA):
             typeNameStep = type(step).__name__
             val = self.values[i]
             typeNameVal = type(val).__name__
-            print(f'{bcolors.OKGREEN}status: name {self.name()}, i: {i}, selfCountExludingStr: {selfCountExludingStr}, step: {step}, typeNameStep: {typeNameStep}, val: {val}, typeNameVal: {typeNameVal}{bcolors.ENDC}')
+            #print(f'{bcolors.OKGREEN}status: name {self.name()}, i: {i}, selfCountExludingConst: {selfCountExludingConst}, step: {step}, typeNameStep: {typeNameStep}, val: {val}, typeNameVal: {typeNameVal}{bcolors.ENDC}')
 
             if not State.__isStored(step, step.token.settings):
                 pass
             elif isinstance(val, State):
-                compatIndices = indexToIndices[selfCountExludingStr]
+                compatIndices = indexToIndices[selfCountExludingConst]
                 
                 for compatIndex in compatIndices:
                     settings = stepsB[compatIndex].token.settings
-                    strs[compatIndex] = handleConversion(productions, settings, val)
-                selfCountExludingStr += 1
+                    strings[compatIndex] = State.__handleConversion(productions, settings, val, method, graph)
+                selfCountExludingConst += 1
 
             #Check key    
-            elif selfCountExludingStr in indexToIndices:
+            elif selfCountExludingConst in indexToIndices:
 
-                assert(len(indexToIndices[selfCountExludingStr]) == 1)
-                compatIndex = indexToIndices[selfCountExludingStr][0]
-                selfCountExludingStr += 1
+                assert(len(indexToIndices[selfCountExludingConst]) == 1)
+                compatIndex = indexToIndices[selfCountExludingConst][0]
+                selfCountExludingConst += 1
 
                 if (isinstance(val, Terminal)):
                     isRegex = stepsA[i].rule.settings['regex']
@@ -606,39 +380,41 @@ class State:
                     #print(f'isRegex: {isRegex}, isRegexB: {isRegexB}')
                     assert(isRegex == isRegexB)
 
-                    strs[compatIndex] = handleConversion(productions, val.token.settings, val)
+                    strings[compatIndex] = State.__handleConversion(productions, val.token.settings, val, method, graph)
                     
                 elif (isinstance(val, NonTerminal)):
                     rule = stepsB[compatIndex].rule
-                    strs[compatIndex] = handleConversion(productions, rule.settings, rule.tok)
+                    strings[compatIndex] = State.__handleConversion(productions, rule.settings, rule.tok, method, graph)
                 elif (isinstance(val, str)):
                     settings = stepsB[compatIndex].token.settings
-                    strs[compatIndex] = handleConversion(productions, settings, val)
+                    strings[compatIndex] = State.__handleConversion(productions, settings, val, method, graph)
                 elif (isinstance(val, list)):
                     settings = stepsB[compatIndex].token.settings
-                    strs[compatIndex] = handleConversion(productions, settings, val)
+                    strings[compatIndex] = State.__handleConversion(productions, settings, val, method, graph)
                 elif val == None:
-                    strs[compatIndex] = ''
+                    strings[compatIndex] = ''
                 else:
                     typeName = type(val).__name__
                     print(f'ERROR: type {typeName}')
                     assert False
-                """
-            elif containsAndTrue(step.rule.settings, 'opt'):
-                rule = stepsB[i].rule 
-                strs[i] = optPad(val, rule.settings) if val != None else ''
-            elif containsAndTrue(step.rule.settings, 'alo'):
-                rule = stepsB[i].rule 
-                strs[i] = ''.join([optPad(v, rule.settings) for v in val])
-                """
+
             else:
                 typeName = type(val).__name__
                 #assert False
         
         #print(f'-------END ESRAP OF {self.name()}-------')
-        print(strs)
-        strs = [str if str != None else 'BOOO' for str in strs ]
-        return ''.join(strs)
+        #print(strings)
+        strings = [str if str != None else 'BOOO' for str in strings ]
+
+        match method:
+            case UnwrapMethod.ESRAP:
+                ret = ''.join(strings)
+            case UnwrapMethod.DOT:
+                State.__createNodeWithDeps(self.name(), strings, None, graph, self.uuid.hex)
+                ret = self.uuid.hex
+                
+        
+        return ret
 
 
 class Column():
@@ -678,20 +454,19 @@ class Column():
 
 def complete(table, state: State):
     # complete non terminals
-    print(f'complete name: {state.production.name}, from: {state.originPosition}')
+    #print(f'complete name: {state.production.name}, from: {state.originPosition}')
     colJ = table[state.originPosition].states
     newStates = []
     for stateJ in colJ:
         if (not stateJ.isCompleted()) and (stateJ.getNextName() == state.production.name) and not stateJ.nextIsTerminal():
-            print(f' completing name: {stateJ.name()} from: {stateJ.originPosition}')
+            #print(f' completing name: {stateJ.name()} from: {stateJ.originPosition}')
             newState = copy.deepcopy(stateJ)
             newStates.extend(newState.advance(state))
             newStates.append(newState)
     return newStates
 
-def tokenize(input: str):
+def tokenize(input: str, interupts = ['+', '-', '*', ':', '/', '(', ')', '\n', ',', '{', '}']):
         tokens = []
-        interupts = ['+', '-', '*', '/', '(', ')', '\n', ',']
         curr = ''
         status = TokenizeSettings.NORMAL
         for c in input:
@@ -762,19 +537,19 @@ def match(productions: Productions, inTokens: list[str], beginRules: list[uuid.U
     for currentChart, col in enumerate(table):
         #pre
         tok = inTokens[currentChart] if currentChart<len(inTokens) else None
-        print(f'------{currentChart}, {tok}: PRE------')
-        print('\n'.join(map(str, col.states)))
+        #print(f'------{currentChart}, {tok}: PRE------')
+        #print('\n'.join(map(str, col.states)))
 
         #real work
         for state in col.states:
-            print(f'sate name: {state.production.name}, is completed: {state.isCompleted()}')
+            #print(f'sate name: {state.production.name}, is completed: {state.isCompleted()}')
             if (state.isCompleted()):
-                print('Is completed!')
+                #print('Is completed!')
                 col.states.extend(complete(table, state))
 
             else:
                 if (tok != None and state.nextIsTerminal()):
-                    print('Scanning')
+                    #print('Scanning')
                     newStates = state.MatchThenAdvanceStateCopies(tok)
                     table[currentChart+1].extend(newStates)
                 else:
@@ -782,7 +557,7 @@ def match(productions: Productions, inTokens: list[str], beginRules: list[uuid.U
                     predict(col, state, currentChart)
 
         #post
-        print(f'------{currentChart}, {tok}: POST------')
+        print(f'------{currentChart}, "{bcolors.OKBLUE}{tok}{bcolors.ENDC}": POST------')
         print('\n'.join(map(str, col.states)))
     
     # Find result
@@ -792,9 +567,16 @@ def match(productions: Productions, inTokens: list[str], beginRules: list[uuid.U
             matches.append(status)
     
     print(f'MATCHES: {matches}')
+    for match in matches:
+            match.getDot(productions)
     if (len(matches) > 1):
         print(f'{bcolors.FAIL}ERROR: MULTIPLE MATCHES{bcolors.ENDC}')
+        for match in matches:
+            match.getDot(productions)
+            #print(f'{bcolors.FAIL}{esr}{bcolors.ENDC}')
+        
         return None
+    
     return matches[0] if len(matches) == 1 else None
 
 

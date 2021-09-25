@@ -1,3 +1,5 @@
 __pycache__
 late/__pycache__/
+*.png
+*.dot
 

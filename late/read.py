@@ -31,7 +31,7 @@ class ParseState(Enum):
     SEP = 2,
     RULE = 3
 
-def __parseIR(lines):
+def parseIR(lines):
     productions = []
 
     for lineNumber, line in enumerate(lines):
@@ -39,7 +39,7 @@ def __parseIR(lines):
         rule = ''
         state = ParseState.NAME
         
-        if line[0] == '#':
+        if len(line) == 0 or line[0] == '#':
             continue
 
         for c in line:
@@ -100,8 +100,8 @@ def __parseFile(lines: list[str], productions: Optional[Productions] = None):
     #return 
 
 
-def getMetaIrProductions(url: str) -> Productions:
-    prods = __parseIR(__readFileLines(url))
+def getMetaIrProductions(url: str) -> list[Production]:
+    prods = parseIR(__readFileLines(url))
     return Productions(prods)
     
 def parse(url_grammer2: str, url_grammer: str, tokens: list) -> str:

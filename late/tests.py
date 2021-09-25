@@ -2,7 +2,7 @@ import uuid
 import unittest
 
 from .late import *
-
+from .read import *
 
 class ESRAP(unittest.TestCase):
     #@unittest.skip("impl |")
@@ -386,6 +386,41 @@ class ESRAP(unittest.TestCase):
         for input in inputs:
             self.__check(prodA, prodA, input, input)
 
+    @unittest.skip("grouping")
+    def test_grouping(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'letter', '( "a" )'),
+            ])
+        inputs = ["a"]
+        for input in inputs:
+            self.__check(prodA, prodA, input, input)
+
+    
+    def test_read(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = parseIR("""
+production →  name separator{"pad": false} "|"{"opt": true} to_match
+to_match → sub | sub "|"{"pad": true} to_match
+sub → token settings{"opt": true} | "(" to_match ")" settings{"opt": true}
+settings → "{" tokens{"alo": true, "opt": true} "}"
+token → name | '\\'' tokens '\\''
+name → [a-zA-Z0-9]*
+tokens → [a-zA-Z0-9!<>#$\\\\+\\\\-\\\\*_\\\\.!]*
+separator → ":"
+""".splitlines())
+        inputs = [
+            "abc:\"foo\"",
+            "abc:\"foo\" | boo",
+            "abc:\"foo\"{'pad':true}",
+            "abc:(\"foo\" | boo)",
+            "abc:(\"foo\" | boo){'pad':true}",
+            "abc:(\"foo\" | boo){'pad':true}",
+            #"abc:(\"foo\" | boo){'pad':true} | (\"foo\" | boo){'pad':true}",
+            ]
+        for input in inputs:
+            self.__check(prodA, prodA, input, input)
+
     #@unittest.skip("impl |")
     def test_bnf(self):
         uuids = [uuid.uuid4() for i in range(50)]
@@ -435,7 +470,8 @@ class ESRAP(unittest.TestCase):
         inputs = ["hello ::= a\n", "hello ::= a\na ::= b\n"]
         for input in inputs: 
             outputExpect = input
-            matched = match(Productions(prodBNF), tokenize(input), begin)
+            interupts = ['+', '-', '*', '/', '(', ')', '\n', ',']
+            matched = match(Productions(prodBNF), tokenize(input, interupts), begin)
 
             self.assertNotEqual(matched, None)
             vals = matched.fullStr()
