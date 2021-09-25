@@ -3,8 +3,9 @@ from __future__ import annotations
 import copy
 import uuid
 import itertools
-import pydot
-#import graphviz
+import graphviz
+import html
+
 
 from late.helper import *
 from late.parser import *
@@ -12,6 +13,11 @@ from late.parser import *
 class UnwrapMethod(Enum):
     ESRAP = 1,
     DOT = 2
+
+class Compatibility(Enum):
+    EQUAL     = 0,
+    EXPLICIT_EXPORT  = 1,
+    IMPLICIT_EXPORT  = 2
 
 class State:
     def __init__(self, production, originPosition):
@@ -128,7 +134,7 @@ class State:
             assert False
 
     def advance(self, val) -> list[State]:
-        print(f'advance self.position: {self.position}')
+        #print(f'advance self.position: {self.position}')
         assert self.position < self.production.len()
         myPos = self.position
 
@@ -192,65 +198,111 @@ class State:
     def __isStored(step, settings):
         return isinstance(step, NonTerminal) or containsAndTrueAny(settings, ['regex', 'opt', 'alo'])
 
-    """
-    NOTE:   This method works for both implicit and explicit compatibility 
-            compat may have more non terminals
-            That's why it is on the lhs
-    """
-    def __genIndexToIndices(self, compat: Production, explicit):
-        indexToIndex = {}
-        #print(f'self production:       {self.production}')
-        #print(f'compatible production: {compat}')
 
-        count = 0
-        for compatIndex, step in enumerate(compat.steps):
+
+    """
+    NOTE:   This method works for equal, implicit and explicit compatibility 
+            prodB may have more non terminals
+            That's why it is on the lhs of the assignment in indexAToIndicesB
+            This is problematic for implicit compatibility...
+            
+    """
+    def __genIndexToIndices(self, prodB: Production, compatibility: Compatibility):
+        indexAToIndicesB = {}
+        #print(f'self production:       {self.production}')
+        #print(f'compatible production: {prodB}')
+
+        val_index_b_TO_val_index_a = {}
+        if compatibility == Compatibility.IMPLICIT_EXPORT:
+            val_indexA = 0
+            for prodA_step_index, step in enumerate(self.production.steps):
+                settings = step.token.settings
+                if State.__isStored(step, settings):
+                    if not 'id' in step.token.settings:
+                        print(f'{bcolors.FAIL}Production with name {self.name()} is missing an id setting for step: {prodA_step_index}!{bcolors.ENDC}')
+                        assert False
+                    val_indexB = step.token.settings['id']
+                    val_index_b_TO_val_index_a[val_indexB] = val_indexA
+                    val_indexA += 1
+            print(f'val_index_b_TO_val_index_a: {val_index_b_TO_val_index_a}')
+
+        val_index_b = 0
+        for prodB_step_index, step in enumerate(prodB.steps):
             settings = step.token.settings
             if State.__isStored(step, settings):
-                if explicit:
-                    if not 'id' in step.token.settings:
-                        print(f'{bcolors.FAIL}Production with name {compat.name} is missing an id setting for step: {compatIndex}!{bcolors.ENDC}')
-                        assert False
-                    selfIndex = step.token.settings['id']
-                else:
-                    selfIndex = count
+                match compatibility:
+                    case Compatibility.EXPLICIT_EXPORT:
+                        if not 'id' in step.token.settings:
+                            print(f'{bcolors.FAIL}Production with name {prodB.name} is missing an id setting for step: {prodB_step_index}!{bcolors.ENDC}')
+                            assert False
+                        valAIndex = step.token.settings['id']
+                        if (not valAIndex in indexAToIndicesB):
+                            indexAToIndicesB[valAIndex] = []
+                            #print(f'empty dictionary array at : {valAIndex}')
                 
-                if (not selfIndex in indexToIndex):
-                    indexToIndex[selfIndex] = []
-                    #print(f'empty dictionary array at : {selfIndex}')
-                
-                indexToIndex[selfIndex].append(compatIndex)
-                count += 1
-        return indexToIndex
+                        indexAToIndicesB[valAIndex].append(prodB_step_index)
+                    case Compatibility.EQUAL:
+                        indexAToIndicesB[val_index_b] = [prodB_step_index]
+                    case Compatibility.IMPLICIT_EXPORT:
+                        #assert False
+                        if not val_index_b in val_index_b_TO_val_index_a:
+                            assert False
+                        else:
+                            val_index_a = val_index_b_TO_val_index_a[val_index_b]
+                            indexAToIndicesB[val_index_a] = [prodB_step_index]
 
-    def esrap(self, productions: Productions) -> str:
-        return self.__unwarp(productions, UnwrapMethod.ESRAP)
-
-    def getDot(self, productions: Productions):
+                val_index_b += 1
         
-        
-        graph = pydot.Dot('my_graph', graph_type='graph', bgcolor='white')
-        self.__unwarp(productions, UnwrapMethod.DOT, graph)
-        graph.write_raw('output_raw.dot')
+        print(f'indexAToIndicesB: {indexAToIndicesB}')
+        return indexAToIndicesB
 
-        graph.write_png('output.png')
+    def esrap(self, productionsB: Productions) -> str:
+        return self.__unwarp(productionsB, UnwrapMethod.ESRAP)
+
+    def getDot(self, productionsB: Productions, fileName: str):
+        #graph = pydot.Dot('my_graph', graph_type='graph', bgcolor='white')
+        graph = graphviz.Digraph(comment='The Round Table', node_attr={'shape': 'plaintext'})
+        
+        self.__unwarp(productionsB, UnwrapMethod.DOT, graph)
+        graph.render(f'test-output/{fileName}', view=True)
+        #graph.write_raw('output_raw.dot')
+
+        #graph.write_png('output.png')
 
     @staticmethod
     def __createNode(string: str, settings, graph):
         name = uuid.uuid4().hex
-        node = pydot.Node(name, label=string, shape='box')
-        graph.add_node(node)
+        graph.node(name, label=string, shape='box')
         return name
 
-    @staticmethod
-    def __createNodeWithDeps(string: str, deps: list[str], settings, graph, name: Optional[str] = None):
+    def __createNodeWithDeps(self, deps: list[str], settings, graph, name: Optional[str] = None):
         if name == None:
             name = uuid.uuid4().hex
 
-        node = pydot.Node(name, label=string, shape='box')
-        graph.add_node(node)
-        for dep in deps:
-            my_edge = pydot.Edge(name, dep, color='black')
-            graph.add_edge(my_edge)
+        #print(f'self.production.steps[0]: {self.production.steps[0]}')
+
+        def present(index):
+            return self.values[index] != None
+
+        def infoToCol(index, step):
+            escaped = html.escape(step.name())
+            return f'<TD PORT="f{index}" BGCOLOR="{"white" if present(index) else "grey"}">{escaped}</TD>'
+        
+        cols = [infoToCol(index, step) for index, step in enumerate(self.production.steps)]
+        code = ''.join(cols)
+        graph.node(name, f'''<
+<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+  <TR>
+    <TD COLSPAN="{len(cols)}">{self.name()}</TD>
+  </TR>
+  <TR>
+    {code}
+  </TR>
+</TABLE>>''')
+        for i, dep in enumerate(deps):
+            if present(i):
+                outPort = name+':f'+str(i)
+                my_edge = graph.edge(outPort, dep, color='black')
         return name
 
     @staticmethod
@@ -258,11 +310,10 @@ class State:
         if name == None:
             name = uuid.uuid4().hex
 
-        node = pydot.Node(name, label=string, shape='box')
-        graph.add_node(node)
+        graph.node(name, label=string, shape='box')
         for string in strings:
-            my_edge = pydot.Edge(name, State.__createNode(string, settings, graph), color='orange')
-            graph.add_edge(my_edge)
+            id = string#State.__createNode(string, settings, graph)
+            my_edge = graph.edge(name, id, color='orange')
         return name
 
     @staticmethod
@@ -273,7 +324,7 @@ class State:
         return string
 
     @staticmethod
-    def __handleConversion(productions, settings, val, method: UnwrapMethod, graph: Optional[str] = None) -> str:
+    def __handleConversion(productions, settings, val, method: UnwrapMethod, recursion_index: int, graph: Optional[str] = None) -> str:
         match method:
             case UnwrapMethod.ESRAP:
                 func = State.__optPad
@@ -282,7 +333,7 @@ class State:
 
 
         if isinstance(val, State):
-            state = val.__unwarp(productions, method, graph)
+            state = val.__unwarp(productions, method, recursion_index+1, graph)
             match method:
                 case UnwrapMethod.ESRAP:
                     ret = State.__optPad(state, settings)
@@ -297,7 +348,7 @@ class State:
             return func(val, settings)
         elif isinstance(val, list):
             # DO NOT PAD
-            strings = [State.__handleConversion(productions, settings, v, method, graph) for v in val]
+            strings = [State.__handleConversion(productions, settings, v, method, recursion_index+1, graph) for v in val]
             
             match method:
                 case UnwrapMethod.ESRAP:
@@ -309,31 +360,50 @@ class State:
             assert False
         
 
-    def __unwarp(self, productions: Productions, method: UnwrapMethod, graph: Optional[str] = None) -> str:
+    def __unwarp(self, productionsB: Productions, method: UnwrapMethod, recursion_index = 0, graph: Optional[str] = None) -> str:
         assert self.isCompleted()
-        #print(f'-------BEGIN ESRAP OF {self.name()}-------')
+        tab_string = '\t' * recursion_index
+        print(f'-------BEGIN unwrap OF {self.name()}-------')
+        print(str(productionsB))
         #print(self.fullStr())
-        otherProd = productions.getProduction(self.production.uuid)
-        equal = True
-        if otherProd == None:
+
+
+        # Algo:
+        #   Do I exist in the _new_ productions?
+        #   Is any of their productions compatible to me?
+        #   Am I compatible to any of their productions?
+        prodB = productionsB.getProduction(self.production.uuid)
+        if prodB != None:
+            compatibility = Compatibility.EQUAL
+        else:
             #print(f'=====CONVERSIONS ARE NEEDED=====')
             # conversions are needed
-            otherProd = productions.getCompatableProduction(self.production.uuid)
-            assert otherProd != None
-            equal = False
+            prodB = productionsB.getCompatableProduction(self.production.uuid)
+            if prodB != None:
+                compatibility = Compatibility.EXPLICIT_EXPORT
+            else:
+                prodB = productionsB.getProduction(self.production.uuid_compat)
+                explicit = False
+                if prodB != None:
+                    compatibility = Compatibility.IMPLICIT_EXPORT
+                else:
+                    print(f'{bcolors.FAIL}ERROR: COMPATIBLE PRODUCTION NOT FOUND{bcolors.ENDC}')
+                    assert prodB != None
+                    
+                
 
 
         stepsA = self.production.steps
-        stepsB = otherProd.steps
+        stepsB = prodB.steps
 
-        indexToIndices = self.__genIndexToIndices(otherProd, not equal)
-        #print(f'indexToIndices: {indexToIndices}')
+        indexToIndices = self.__genIndexToIndices(prodB, compatibility)
+        print(f'{tab_string}indexToIndices: {indexToIndices}')
 
 
         strings = [None]*len(stepsB)
 
         # Set strings
-        for i, step in enumerate(otherProd.steps):
+        for i, step in enumerate(prodB.steps):
             if (isinstance(step, Terminal) and not step.rule.settings['regex'] and not containsAndTrue(step.rule.settings, 'opt') and not containsAndTrue(step.rule.settings, 'alo')):
                 string = step.rule.tok
                 settings = step.rule.settings
@@ -349,13 +419,13 @@ class State:
 
         selfCountExludingConst = 0
 
-        #print(f'stepsA: {stepsA}, self.values: {self.values}')
+        print(f'{tab_string}stepsA: {stepsA}, self.values: {self.values}')
         assert len(stepsA) == len(self.values)
         for i, step in enumerate(stepsA):
             typeNameStep = type(step).__name__
             val = self.values[i]
             typeNameVal = type(val).__name__
-            #print(f'{bcolors.OKGREEN}status: name {self.name()}, i: {i}, selfCountExludingConst: {selfCountExludingConst}, step: {step}, typeNameStep: {typeNameStep}, val: {val}, typeNameVal: {typeNameVal}{bcolors.ENDC}')
+            print(f'{tab_string}{bcolors.OKGREEN}status: name {self.name()}, i: {i}, selfCountExludingConst: {selfCountExludingConst}, step: {step}, typeNameStep: {typeNameStep}, val: {val}, typeNameVal: {typeNameVal}{bcolors.ENDC}')
 
             if not State.__isStored(step, step.token.settings):
                 pass
@@ -363,8 +433,9 @@ class State:
                 compatIndices = indexToIndices[selfCountExludingConst]
                 
                 for compatIndex in compatIndices:
+                    print(f'compatIndex: {compatIndex}')
                     settings = stepsB[compatIndex].token.settings
-                    strings[compatIndex] = State.__handleConversion(productions, settings, val, method, graph)
+                    strings[compatIndex] = State.__handleConversion(productionsB, settings, val, method, recursion_index+1, graph)
                 selfCountExludingConst += 1
 
             #Check key    
@@ -380,17 +451,17 @@ class State:
                     #print(f'isRegex: {isRegex}, isRegexB: {isRegexB}')
                     assert(isRegex == isRegexB)
 
-                    strings[compatIndex] = State.__handleConversion(productions, val.token.settings, val, method, graph)
+                    strings[compatIndex] = State.__handleConversion(productionsB, val.token.settings, val, method, recursion_index+1, graph)
                     
                 elif (isinstance(val, NonTerminal)):
                     rule = stepsB[compatIndex].rule
-                    strings[compatIndex] = State.__handleConversion(productions, rule.settings, rule.tok, method, graph)
+                    strings[compatIndex] = State.__handleConversion(productionsB, rule.settings, rule.tok, method, recursion_index+1, graph)
                 elif (isinstance(val, str)):
                     settings = stepsB[compatIndex].token.settings
-                    strings[compatIndex] = State.__handleConversion(productions, settings, val, method, graph)
+                    strings[compatIndex] = State.__handleConversion(productionsB, settings, val, method, recursion_index+1, graph)
                 elif (isinstance(val, list)):
                     settings = stepsB[compatIndex].token.settings
-                    strings[compatIndex] = State.__handleConversion(productions, settings, val, method, graph)
+                    strings[compatIndex] = State.__handleConversion(productionsB, settings, val, method, recursion_index+1, graph)
                 elif val == None:
                     strings[compatIndex] = ''
                 else:
@@ -410,7 +481,7 @@ class State:
             case UnwrapMethod.ESRAP:
                 ret = ''.join(strings)
             case UnwrapMethod.DOT:
-                State.__createNodeWithDeps(self.name(), strings, None, graph, self.uuid.hex)
+                State.__createNodeWithDeps(self, strings, None, graph, self.uuid.hex)
                 ret = self.uuid.hex
                 
         
@@ -465,7 +536,7 @@ def complete(table, state: State):
             newStates.append(newState)
     return newStates
 
-def tokenize(input: str, interupts = ['+', '-', '*', ':', '/', '(', ')', '\n', ',', '{', '}']):
+def tokenize(input: str, interupts = ['+', '-', '*', ':', '/', '(', ')', '\n', ',', '{', '}', '\'']):
         tokens = []
         curr = ''
         status = TokenizeSettings.NORMAL
@@ -508,7 +579,7 @@ def tokenizeFromJson(code: list):
     return tokens
 
 def match(productions: Productions, inTokens: list[str], beginRules: list[uuid.UUID] = None):
-    print(str(productions))
+    #print(str(productions))
     tokenStr = '\n\t'.join([str(tok) for tok in inTokens])
     #print(f'tokenized: \n\t{tokenStr}, len: {len(inTokens)}')
     #table = [Column(productions, [State(prod, 0) for prod in productions.productions])]
@@ -529,7 +600,7 @@ def match(productions: Productions, inTokens: list[str], beginRules: list[uuid.U
 
     def predict(col, state, currentChart):
         #Prediction
-        print('Predicting')
+        #print('Predicting')
                     
         name = state.getNextName()
         col.extend(col.predict(name, currentChart))
@@ -567,56 +638,13 @@ def match(productions: Productions, inTokens: list[str], beginRules: list[uuid.U
             matches.append(status)
     
     print(f'MATCHES: {matches}')
-    for match in matches:
-            match.getDot(productions)
+
     if (len(matches) > 1):
         print(f'{bcolors.FAIL}ERROR: MULTIPLE MATCHES{bcolors.ENDC}')
-        for match in matches:
-            match.getDot(productions)
+        for index, match in enumerate(matches):
+            match.getDot(productions, f'index-{index}.gv')
             #print(f'{bcolors.FAIL}{esr}{bcolors.ENDC}')
         
         return None
     
     return matches[0] if len(matches) == 1 else None
-
-
-def foo():
-    #number = Terminal('[0-9]')
-    #number2 = Terminal('\+')
-    #print(number.rule)
-    #print(number2.match('+'))
-
-    uuids = [uuid.uuid4() for i in range(10)]
-    
-    prodB = [Production(uuids[0], 'number', 'a | b')]
-    #prodB = [Production(uuids[0], 'calculation', 'term'), Production(uuids[1], 'term', '"hi" number "hi" "plus"{"pad": true} "hi" term "hi" '), Production(uuids[2], 'term', 'number'), Production(uuids[3], 'number', '[0-9]')]
-    #prodC = [Production(uuids[0], 'calculation', 'term'), Production(uuids[1], 'term', 'term " plus " number'), Production(uuids[2], 'term', 'number'), Production(uuids[3], 'number', '[0-9]')]
-
-    #prodD = [Production(uuids[0], 'calculation', 'term'), Production(uuids[1], 'term', 'number "*" "(" term "+" term ")"'), Production(uuids[2], 'term', 'number'), Production(uuids[3], 'number', '[0-9]')]
-    #prodE = [Production(uuids[0], 'calculation', 'term'), Production(uuids[1], 'term', 'number "*" "(" term "+" term ")"'), Production(uuids[2], 'term', 'number'), Production(uuids[3], 'number', '[0-9]')]
-    #prodF = [Production(uuids[0], 'calculation', 'term'), Production(uuids[4], 'term', '"(" number{"id": 0} "*" "(" term{"id": 1} ")" ")" "+" "(" number{"id": 0} "*" "(" term{"id": 2} ")" ")"', uuids[1]), Production(uuids[2], 'term', 'number'), Production(uuids[3], 'number', '[0-9]')]
-
-    #
-    #input = "1+1"
-    #input = "1 plus 2 plus 3"
-    input = '4*(1*(2+3)+5*(6+7))'
-
-
-    print('-------------INPUT--------------')
-    print(input)
-    print('-------------PARSE--------------')
-    matched = match(Productions(prodD), input)
-
-    if (matched != None):
-        print('----------PARSE RESULT----------')
-        vals = matched.fullStr()
-        print(vals)
-        #esrap(Productions(prodA), matched)
-        print('-------------ESRAP-------------')
-        esr = matched.esrap(Productions(prodF))
-        print('----------ESRAP RESULT----------')
-        print(esr)
-    else:
-        print('No match!')
-
-

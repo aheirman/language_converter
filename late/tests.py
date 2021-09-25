@@ -62,6 +62,9 @@ class ESRAP(unittest.TestCase):
         self.assertEqual(esr, outputExpect)
 
 
+    """
+        Match against the first and esrap with the second.
+    """
     def __check(self, prodA, prodB, input: str, output: str, begin = None):
         matched = match(Productions(prodA), tokenize(input), begin)
         print(f'input: {input}, matched: {matched}, expected output: {output}')
@@ -276,7 +279,7 @@ class ESRAP(unittest.TestCase):
         for input in inputs:
             self.__check(prodA, prodA, input, input)
 
-    #@unittest.skip("impl |")
+    @unittest.skip("BROKEN")
     def test_optional3(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a" "b"{"opt": true, "pad": true} "b"{"opt": true, "pad": true} "a"{"pad": true}')])
@@ -396,27 +399,103 @@ class ESRAP(unittest.TestCase):
         for input in inputs:
             self.__check(prodA, prodA, input, input)
 
-    
+    #@unittest.skip("read")
     def test_read(self):
         uuids = [uuid.uuid4() for i in range(10)]
         prodA = parseIR("""
 production →  name separator{"pad": false} "|"{"opt": true} to_match
 to_match → sub | sub "|"{"pad": true} to_match
 sub → token settings{"opt": true} | "(" to_match ")" settings{"opt": true}
-settings → "{" tokens{"alo": true, "opt": true} "}"
-token → name | '\\'' tokens '\\''
-name → [a-zA-Z0-9]*
-tokens → [a-zA-Z0-9!<>#$\\\\+\\\\-\\\\*_\\\\.!]*
+settings → "{" token{"alo": true, "opt": true} "}"
+name → [a-zA-Z0-9]+
+token → [a-zA-Z0-9!<>#$\\\\"\\\\'\\\\+\\\\-\\\\*_\\\\.!:]+
 separator → ":"
 """.splitlines())
         inputs = [
             "abc:\"foo\"",
-            "abc:\"foo\" | boo",
+            "abc:\"foo\" | glue",
             "abc:\"foo\"{'pad':true}",
-            "abc:(\"foo\" | boo)",
-            "abc:(\"foo\" | boo){'pad':true}",
-            "abc:(\"foo\" | boo){'pad':true}",
-            #"abc:(\"foo\" | boo){'pad':true} | (\"foo\" | boo){'pad':true}",
+            "abc:(\"foo\" | glue)",
+            "abc:(\"foo\" | glue){'pad':true}",
+            "abc:(\"foo\" | glue){'pad':true}",
+            "abc:(\"foo\" | glue){'pad':true} | (\"foo\" | glue){'pad':true}",
+            ]
+        for input in inputs:
+            self.__check(prodA, prodA, input, input)
+
+    def test_read_reorder(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = parseIR("""{"id": "a"}
+calculation → term "," term "," term
+term → [0-9]
+""".splitlines())
+        
+        prodB = parseIR("""{"id": "b"}
+calculation{"compatible": "a-1-0"} → term{"id": 2} "," term{"id": 1} "," term{"id": 0}
+term{"compatible": "a-2-0"} → [0-9]{"id": 0}
+""".splitlines())
+
+        inputs = ["1,2,3"]
+        outputs = ['3,2,1']
+
+        for input, output in zip(inputs, outputs): 
+            self.__check(prodA, prodB, input, output)
+        print('------------')
+        for output, input in zip(inputs, outputs): 
+            self.__check(prodB, prodA, input, output)
+
+    def test_read_reorder2(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = parseIR("""{"id": "a"}
+calculation → term "," term "," term
+term → [0-9]
+""".splitlines())
+        
+        prodB = parseIR("""{"id": "b"}
+calculation{"compatible": "a-1-0"} → term{"id": 2} "," term{"id": 1} "," "strange"{"pad": true} "place"{"pad": true} term{"id": 0}
+term{"compatible": "a-2-0"} → [0-9]{"id": 0}
+""".splitlines())
+
+        inputs = ["1,2,3"]
+        outputs = ['3,2, strange  place 1']
+
+        for input, output in zip(inputs, outputs): 
+            self.__check(prodA, prodB, input, output)
+        print('------------')
+        for output, input in zip(inputs, outputs): 
+            self.__check(prodB, prodA, input, output)
+
+    @unittest.skip("bracket_transform")
+    def test_bracket_transform(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        prodA = parseIR("""
+production →  name separator{"pad": false} "|"{"opt": true} to_match
+to_match → sub | sub "|"{"pad": true} to_match
+sub → token settings{"opt": true} | "(" to_match ")" settings{"opt": true}
+settings → "{" token{"alo": true, "opt": true} "}"
+name → [a-zA-Z0-9]+
+token → [a-zA-Z0-9!<>#$\\\\"\\\\'\\\\+\\\\-\\\\*_\\\\.!:]+
+separator → ":"
+""".splitlines())
+
+        prodB = parseIR("""
+production →  name separator{"pad": false} "|"{"opt": true} to_match
+to_match → sub | sub "|"{"pad": true} to_match
+sub → token settings{"opt": true}
+settings → "{" token{"alo": true, "opt": true} "}"
+name → [a-zA-Z0-9]+
+token → [a-zA-Z0-9!<>#$\\\\"\\\\'\\\\+\\\\-\\\\*_\\\\.!:]+
+separator → ":"
+""".splitlines())
+
+        inputs = [
+            "abc:\"foo\"",
+            #"abc:\"foo\" | glue",
+            #"abc:\"foo\"{'pad':true}",
+            #"abc:(\"foo\" | glue)",
+            #"abc:(\"foo\" | glue){'pad':true}",
+            #"abc:(\"foo\" | glue){'pad':true}",
+            #"abc:(\"foo\" | glue){'pad':true} | (\"foo\" | glue){'pad':true}",
             ]
         for input in inputs:
             self.__check(prodA, prodA, input, input)

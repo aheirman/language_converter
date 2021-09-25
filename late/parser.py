@@ -34,7 +34,7 @@ class Terminal:
         settings = self.token.settings
         if (settings['regex']):
             self.rule = rule
-            print(f'Terminal with regex rule: {self.token.tok}')
+            #print(f'Terminal with regex rule: {self.token.tok}')
             self.reg = re.compile(self.token.tok)
         else:
             self.rule = rule
@@ -63,14 +63,14 @@ class Production:
         steps = []
         #print(f'Production tokens: {[str(t) for t in self.tokens]}')
         for tok in self.tokens:
-            #print(f'production process name: {self.name}, token: "{tok}"')
+            #print(f'production process name: {self.name}, token: "{tok.tok}"')
             
             if containsAndTrue(tok.settings, "regex") or containsAndTrue(tok.settings, "quote"):
                 steps.append(Terminal(tok))
             else:
                 prod = productions.productionWithNameExists(tok.tok)
                 if prod == False:
-                    print(f'{bcolors.FAIL}Production with name {tok.tok} missing!{bcolors.ENDC}')
+                    print(f'{bcolors.FAIL}Production with name "{tok.tok}" missing!{bcolors.ENDC}')
                     assert False
 
                 steps.append(NonTerminal(tok))
@@ -252,6 +252,7 @@ class Productions:
         self.RuleProdMap = dict(zip([prod.stdandard for prod in self.productions], [prod.stdandard for prod in self.productions]))
 
     def __init__(self, productions: list[Production]):
+        
         self.productions = productions
         for prod in self.productions:
             prod.process(self)
