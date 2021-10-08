@@ -38,15 +38,15 @@ class CheckUnit:
             print(f'input: {input}, esr: {esr}, expected output: {output}')
             self.assertEqual(esr, output)
 
-    def runSubtests(self, ruleManagerA, ruleManagerB, inputs, outputs):
+    def runSubtests(self, ruleManagerA, ruleManagerB, inputs, outputs, begin = None):
         for input, output in zip(inputs, outputs):
             with self.subTest(input=input):
-                self.check(ruleManagerA, ruleManagerB, input, output)
+                self.check(ruleManagerA, ruleManagerB, input, output, begin)
 
-    def runSubtestsRegex(self, ruleManagerA, ruleManagerB, inputs, outputs):
+    def runSubtestsRegex(self, ruleManagerA, ruleManagerB, inputs, outputs, begin = None):
         for input, output in zip(inputs, outputs):
             with self.subTest(input=input):
-                self.checkRegex(ruleManagerA, ruleManagerB, input, output)
+                self.checkRegex(ruleManagerA, ruleManagerB, input, output, begin)
 
 class ESRAP(unittest.TestCase, CheckUnit):
     #@unittest.skip("impl |")
@@ -620,16 +620,57 @@ number → [0-9]
         projectManager.processProductions()
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
-    @unittest.skip("bracket_transform")
+    #@unittest.skip("import")
+    def test_import_add(self):
+        ruleManagerA = parseIR("""{"id": "a", "imports": ["b"]}
+start → number
+number → [a-z]
+""".splitlines())
+
+        ruleManagerB = parseIR("""{"id": "b"}
+number → [0-9]
+""".splitlines())
+
+        inputs = [
+            "0",
+            "1",
+            "a",
+            "b"
+        ]
+
+        projectManager = ProjectManager([ruleManagerA, ruleManagerB])
+        projectManager.processProductions()
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
+
+
+    #@unittest.skip("import")
+    def test_import_import_start(self):
+        #TODO: start production should be in the ir!
+        ruleManagerA = parseIR("""{"id": "a", "imports": ["b"]}
+number → [a-z]
+""".splitlines())
+
+        ruleManagerB = parseIR("""{"id": "b"}
+start → number
+number → [0-9]
+""".splitlines())
+
+        inputs = [
+            "0",
+            "1",
+            "a",
+            "b"
+        ]
+
+        projectManager = ProjectManager([ruleManagerA, ruleManagerB])
+        projectManager.processProductions()
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs, "b-1-0")
+
+    #@unittest.skip("bracket_transform")
     def test_bracket_transform(self):
+        #TODO: Implement the modification of a production above you...
         ruleManagerA = parseIR("""{"id": "mid", "imports": ["ir"]}
-production →  name separator{"pad": false} "|"{"opt": true} to_match
-to_match → sub | sub "|"{"pad": true} to_match
-sub → token settings{"opt": true} | "(" to_match ")" settings{"opt": true}
-settings → "{" token{"alo": true, "opt": true} "}"
-name → [a-zA-Z0-9]+
-token → [a-zA-Z0-9!<>#$\\\\"\\\\'\\\\+\\\\-\\\\*_\\\\.!:]+
-separator → ":"
+sub{"compatible": "b-1-0"} → "(" to_match ")" settings{"opt": true}
 new_name ⇇ [a-zA-A0-9_-]
 """.splitlines())
 
@@ -648,9 +689,9 @@ separator → ":"
             "abc:\"foo\" | glue",
             "abc:\"foo\"{'pad':true}",
             "abc:(\"foo\" | glue)",
-            #"abc:(\"foo\" | glue){'pad':true}",
-            #"abc:(\"foo\" | glue){'pad':true}",
-            #"abc:(\"foo\" | glue){'pad':true} | (\"foo\" | glue){'pad':true}",
+            "abc:(\"foo\" | glue){'pad':true}",
+            "abc:(\"foo\" | glue){'pad':true}",
+            "abc:(\"foo\" | glue){'pad':true} | (\"foo\" | glue){'pad':true}",
             ]
         outputs = [
             "abc:\"foo\"",
@@ -659,13 +700,13 @@ separator → ":"
 """abc:[a-zA-A][a-zA-A0-9_-]*
 [a-zA-A][a-zA-A0-9_-]*: "foo" | glue
 """,
-            #"abc:(\"foo\" | glue){'pad':true}",
-            #"abc:(\"foo\" | glue){'pad':true}",
-            #"abc:(\"foo\" | glue){'pad':true} | (\"foo\" | glue){'pad':true}",
+            "abc:(\"foo\" | glue){'pad':true}",
+            "abc:(\"foo\" | glue){'pad':true}",
+            "abc:(\"foo\" | glue){'pad':true} | (\"foo\" | glue){'pad':true}",
         ]
 
         projectManager = ProjectManager([ruleManagerA, ruleManagerB])
         projectManager.processProductions()
 
-        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
-        self.runSubtests(ruleManagerA, ruleManagerB, inputs, inputs)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs, "ir-1-0")
+        self.runSubtests(ruleManagerA, ruleManagerB, inputs, inputs, "ir-1-0")

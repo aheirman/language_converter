@@ -213,9 +213,9 @@ class State:
     """
     def __genIndexToIndices(self, prodB: Production, compatibility: Compatibility):
         indexAToIndicesB = {}
-        print(f'__genIndexToIndices: self production:       {self.production}')
-        print(f'__genIndexToIndices: compatible production: {prodB}')
-        print(f'__genIndexToIndices: {compatibility}')
+        #print(f'__genIndexToIndices: self production:       {self.production}')
+        #print(f'__genIndexToIndices: compatible production: {prodB}')
+        #print(f'__genIndexToIndices: {compatibility}')
 
 
         # Loop over A
@@ -231,7 +231,7 @@ class State:
                     val_indexB = step.token.settings['id']
                     val_index_b_TO_val_index_a[val_indexB] = val_indexA
                     val_indexA += 1
-            print(f'val_index_b_TO_val_index_a: {val_index_b_TO_val_index_a}')
+            #print(f'val_index_b_TO_val_index_a: {val_index_b_TO_val_index_a}')
 
         val_index_b = 0
         for prodB_step_index, step in enumerate(prodB.steps):
@@ -264,7 +264,7 @@ class State:
 
                 val_index_b += 1
         
-        print(f'indexAToIndicesB: {indexAToIndicesB}')
+        #print(f'indexAToIndicesB: {indexAToIndicesB}')
         return indexAToIndicesB
 
     def esrap(self, rManagerA: RuleManager, rManagerB: RuleManager) -> str:
@@ -379,7 +379,7 @@ class State:
         assert self.isCompleted()
         tab_string = '\t' * recursion_index
         print(f'-------BEGIN unwrap OF {self.name()}-------')
-        print(str(rManagerB))
+        #print(str(rManagerB))
         #print(self.fullStr())
 
 
@@ -397,8 +397,11 @@ class State:
             if prodB != None:
                 compatibility = Compatibility.EXPLICIT_EXPORT
             else:
+                if self.production.uuid_compat == None:
+                    print(f'{bcolors.FAIL}ERROR: PRODUCTION "{self.production.name}" NEEDS EXPLICIT COMPATIBILITY{bcolors.ENDC}')
+                    assert False
+
                 prodB = rManagerB.getProduction(self.production.uuid_compat)
-                explicit = False
                 if prodB != None:
                     compatibility = Compatibility.IMPLICIT_EXPORT
                 else:
@@ -412,7 +415,7 @@ class State:
         stepsB = prodB.steps
 
         indexToIndices = self.__genIndexToIndices(prodB, compatibility)
-        print(f'{tab_string}indexToIndices: {indexToIndices}')
+        #print(f'{tab_string}indexToIndices: {indexToIndices}')
 
 
         strings = [None]*(len(stepsB))# + len(self.production.noitcudorps))
@@ -433,13 +436,13 @@ class State:
         # Set (Non)Terminals
         selfCountExludingConst = 0
 
-        print(f'{tab_string}stepsA: {stepsA}, self.values: {self.values}')
+        #print(f'{tab_string}stepsA: {stepsA}, self.values: {self.values}')
         assert len(stepsA) == len(self.values)
         for i, step in enumerate(stepsA):
             typeNameStep = type(step).__name__
             val = self.values[i]
             typeNameVal = type(val).__name__
-            print(f'{tab_string}{bcolors.OKGREEN}status: name {self.name()}, i: {i}, selfCountExludingConst: {selfCountExludingConst}, step: {step}, typeNameStep: {typeNameStep}, val: {val}, typeNameVal: {typeNameVal}{bcolors.ENDC}')
+            #print(f'{tab_string}{bcolors.OKGREEN}status: name {self.name()}, i: {i}, selfCountExludingConst: {selfCountExludingConst}, step: {step}, typeNameStep: {typeNameStep}, val: {val}, typeNameVal: {typeNameVal}{bcolors.ENDC}')
 
             if not State.__isStored(step, step.token.settings):
                 pass
@@ -447,7 +450,7 @@ class State:
                 compatIndices = indexToIndices[selfCountExludingConst]
                 
                 for compatIndex in compatIndices:
-                    print(f'compatIndex: {compatIndex}')
+                    #print(f'compatIndex: {compatIndex}')
                     settings = stepsB[compatIndex].token.settings
                     strings[compatIndex] = State.__handleConversion(rManagerA, rManagerB, settings, val, method, recursion_index+1, graph)
                 selfCountExludingConst += 1
@@ -488,7 +491,7 @@ class State:
                 #assert False
         
         # Set noitcudorps
-        print(strings)
+        #print(strings)
         for noitcudorpToken in self.production.noitcudorps:
             index = noitcudorpToken.token.settings["id"]
             noitcudorp = rManagerA.getNoitcudorp(noitcudorpToken.token.tok)
@@ -496,15 +499,15 @@ class State:
             match method:
                     case UnwrapMethod.ESRAP:
                         generated = noitcudorp.generate()
-                        print(f'generated: {generated}')
+                        #print(f'generated: {generated}')
                         strings[index] = generated
                     case UnwrapMethod.DOT:
                         txt = str([str(t.tok) for t in noitcudorp.tokens])
-                        print(f'noitcudorp txt: {txt}')
+                        #print(f'noitcudorp txt: {txt}')
                         strings[index] = State.__createNode(txt, None, graph)
 
         #print(f'-------END ESRAP OF {self.name()}-------')
-        print(strings)
+        #print(strings)
         strings = [str if str != None else 'BOOO' for str in strings ]
 
         match method:
@@ -613,11 +616,12 @@ def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.U
     tokenStr = '\n\t'.join([str(tok) for tok in inTokens])
     #print(f'tokenized: \n\t{tokenStr}, len: {len(inTokens)}')
     #table = [Column(ruleManager, [State(prod, 0) for prod in ruleManager.productions])]
-    topLevelName = ruleManager.productions[0].name
     table = [Column(ruleManager, []) for i in range(len(inTokens)+1)]
 
     if beginRules == None:
         table[0].extend([State(ruleManager.productions[0], 0)])
+        #TODO: This only handles the first rule in a line not all the rules in that line...
+        beginRules = [ruleManager.productions[0].uuid]
     else:
         table[0].extend([State(ruleManager.productions[i], 0) for i in range(len(ruleManager.productions)) if ruleManager.productions[i].uuid in beginRules])
     
@@ -645,7 +649,7 @@ def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.U
         for state in col.states:
             #print(f'sate name: {state.production.name}, is completed: {state.isCompleted()}')
             if (state.isCompleted()):
-                #print('Is completed!')
+                print(f'sate name: {state.production.name}, is completed: {state.isCompleted()}!')
                 col.states.extend(complete(table, state))
 
             else:
@@ -658,13 +662,13 @@ def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.U
                     predict(col, state, currentChart)
 
         #post
-        #print(f'------{currentChart}, "{bcolors.OKBLUE}{tok}{bcolors.ENDC}": POST------')
-        #print('\n'.join(map(str, col.states)))
+        print(f'------{currentChart}, "{bcolors.OKBLUE}{tok}{bcolors.ENDC}": POST------')
+        print('\n'.join(map(str, col.states)))
     
     # Find result
     matches = []
     for status in table[-1].states:
-        if (status.originPosition == 0 and status.isCompleted() and status.production.name == topLevelName):
+        if (status.originPosition == 0 and status.isCompleted() and status.production.uuid in beginRules):
             matches.append(status)
     
     print(f'MATCHES: {matches}')
