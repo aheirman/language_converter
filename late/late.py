@@ -58,6 +58,9 @@ class State:
             pos += 1
         return retStates
 
+    """
+        create extra states needed for optionals
+    """
     def createInitial(self):
         retStates = []
         
@@ -516,9 +519,9 @@ class State:
 
 
 class Column():
-    def __init__(self, productions, states):
+    def __init__(self, ruleManager, states):
         self.states = states
-        self.productions = productions
+        self.ruleManager = ruleManager
 
     def containsState(self, name: str, index: int):
         for state in self.states:
@@ -532,7 +535,7 @@ class Column():
     def predict(self, productionName: str, currentChart):
         new = []
         #print(f'predict: productionName: {productionName}, currentChart {currentChart}')
-        for prod in self.productions.productions:
+        for prod in self.ruleManager.productions:
             #print(f'predict: prod.name {prod.name}')
             if (prod.name == productionName):
                 #print('matching name')
@@ -655,8 +658,8 @@ def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.U
                     predict(col, state, currentChart)
 
         #post
-        print(f'------{currentChart}, "{bcolors.OKBLUE}{tok}{bcolors.ENDC}": POST------')
-        print('\n'.join(map(str, col.states)))
+        #print(f'------{currentChart}, "{bcolors.OKBLUE}{tok}{bcolors.ENDC}": POST------')
+        #print('\n'.join(map(str, col.states)))
     
     # Find result
     matches = []

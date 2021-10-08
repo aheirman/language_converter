@@ -605,7 +605,6 @@ class PROJECT(unittest.TestCase, CheckUnit):
     def test_import(self):
         ruleManagerA = parseIR("""{"id": "a", "imports": ["b"]}
 start → number
-number → [0-9]
 """.splitlines())
 
         ruleManagerB = parseIR("""{"id": "b"}
@@ -614,11 +613,11 @@ number → [0-9]
 
         inputs = [
             "0",
-            ]
-        
+            "1",
+        ]
+
         projectManager = ProjectManager([ruleManagerA, ruleManagerB])
         projectManager.processProductions()
-
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     @unittest.skip("bracket_transform")

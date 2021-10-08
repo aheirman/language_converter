@@ -288,7 +288,7 @@ class Productiongenerator():
 class RuleManager:
 
     def generateMap(self):
-        self.RuleProdMap = dict(zip([prod.stdandard for prod in self.productions], [prod.stdandard for prod in self.productions]))
+        self.RuleProdMap = dict(zip([prod.stdandard for prod in self.my_productions], [prod.stdandard for prod in self.my_productions]))
 
     def __init__(self, name, productions: list[Production], noitcudorps: list[Noitcudorp], imports: list[str]):
         self.name        = name
@@ -298,12 +298,18 @@ class RuleManager:
         self.__checkForErrors()
 
     def process(self, importsState: [list, list]):
-        self.other_productions = importsState[0]
-        self.other_noitcudorp = importsState[1]
-        print('------------')
-        print([str(p) for p in self.other_productions])
-        print([str(p) for p in self.other_noitcudorp])
+        imported_productions = importsState[0]
+        imported_noitcudorp  = importsState[1]
 
+        print('------------')
+        print([str(p) for p in imported_productions])
+        print([str(p) for p in imported_noitcudorp])
+
+        #TODO: handle delete statements!
+        
+        self.productions += imported_productions
+        self.noitcudorps += imported_noitcudorp
+        
         for prod in self.productions:
             prod.process(self)
 
@@ -316,13 +322,11 @@ class RuleManager:
                 uuids.append(prod.uuid)
 
     def __str__(self):
-        return '\n'.join([str(elem) for elem in (self.productions + self.noitcudorps + ['--------', 'IMPORTED', '--------'] + self.other_productions + self.other_noitcudorp )])
+        #return '\n'.join([str(elem) for elem in (self.my_productions + self.noitcudorps + ['--------', 'IMPORTED', '--------'] + self.imported_productions + self.imported_noitcudorp )])
+        return '\n'.join([str(elem) for elem in (self.productions + self.noitcudorps)])
 
     def getProduction(self, uuid):
         for prod in self.productions:
-            if (prod.uuid == uuid):
-                return prod
-        for prod in self.other_productions:
             if (prod.uuid == uuid):
                 return prod
         return None
@@ -331,37 +335,22 @@ class RuleManager:
         for noitcudorp in self.noitcudorps:
             if (noitcudorp.name == name):
                 return noitcudorp
-        for prod in self.other_noitcudorps:
-            if (prod.uuid == uuid):
-                return prod
         return None
 
     def getCompatableProduction(self, uuid):
         for prod in self.productions:
             if (prod.uuid_compat == uuid):
                 return prod
-        for prod in self.other_productions:
-            if (prod.uuid_compat == uuid):
-                return prod
         return None
 
     def productionWithNameExists(self, name: str):
-        print(f'aaaaaaaaa')
-        print([str(p) for p in self.productions])
-        print([str(p) for p in self.other_productions])
         for prod in self.productions:
-            if (prod.name == name):
-                return True
-        for prod in self.other_productions:
             if (prod.name == name):
                 return True
         return False
 
     def noitcudorpWithNameExists(self, name: str):
         for noitcudorp in self.noitcudorps:
-            if (noitcudorp.name == name):
-                return True
-        for noitcudorp in self.other_noitcudorps:
             if (noitcudorp.name == name):
                 return True
         return False
