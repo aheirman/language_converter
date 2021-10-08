@@ -4,78 +4,120 @@ import unittest
 from .late import *
 from .read import *
 
-class ESRAP(unittest.TestCase):
-    #@unittest.skip("impl |")
-    def test_add(self):
-        uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
-            ([uuids[0]], 'calculation', 'term'),
-            ([uuids[1]], 'term', 'number "+" term'),
-            ([uuids[2]], 'term', 'number'),
-            ([uuids[3]], 'number', '[0-9]')])
-        input = "1+2"
-        outputExpect = input
-        matched = match(Productions(prodA), tokenize(input))
-
-        self.assertNotEqual(matched, None)
-        vals = matched.fullStr()
-        esr = matched.esrap(Productions(prodA))
-        self.assertEqual(esr, outputExpect)
-
-    #@unittest.skip("impl |")
-    def test_add2(self):
-        uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
-            ([uuids[0]], 'calculation', 'term'),
-            ([uuids[1]], 'term', 'number "+" term'),
-            ([uuids[2]], 'term', 'number'),
-            ([uuids[3]], 'number', '[0-9]')])
-        input = "1+2+3"
-        outputExpect = input
-        matched = match(Productions(prodA), tokenize(input))
-
-        self.assertNotEqual(matched, None)
-        vals = matched.fullStr()
-        esr = matched.esrap(Productions(prodA))
-        self.assertEqual(esr, outputExpect)
-    
-    #@unittest.skip("impl |")
-    def test_add_rename(self):
-        uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
-            ([uuids[0]], 'calculation', 'term'),
-            ([uuids[1]], 'term', 'number "+" term'),
-            ([uuids[2]], 'term', 'number'),
-            ([uuids[3]], 'number', '[0-9]')])
-        prodB = Productiongenerator.createAllProductions([
-            ([uuids[0]], 'calculation', 'term'),
-            ([uuids[1]], 'term', 'number "plus"{"pad": true} term'),
-            ([uuids[2]], 'term', 'number'),
-            ([uuids[3]], 'number', '[0-9]')])
-        input = "1+2+3"
-        outputExpect = '1 plus 2 plus 3'
-        matched = match(Productions(prodA), tokenize(input))
-
-        self.assertNotEqual(matched, None)
-        vals = matched.fullStr()
-        esr = matched.esrap(Productions(prodB))
-        self.assertEqual(esr, outputExpect)
-
+class CheckUnit:
+    """
+        Match against the first and esrap with the second.
+    """
+    def checkRegex(self, ruleManagerA: RuleManager, ruleManagerB: RuleManager, input: str, outputRegex: str, begin = None):
+        matched = match(ruleManagerA, tokenize(input), begin)
+        print(f'input: {input}, matched: {matched}, expected output regex: {outputRegex}')
+        if matched == None:
+            self.assertEqual(outputRegex, None)
+        else:
+            self.assertNotEqual(outputRegex, None)
+            vals = matched.fullStr()
+            esr = matched.esrap(ruleManagerA, ruleManagerB)
+            reg = re.compile(outputRegex)
+            r = reg.match(esr)
+            t = False if r==None else (r.start() == 0)
+            print(f'input: {input}, esr: "{esr}", expected output regex: "{outputRegex}"')
+            self.assertTrue(t)
 
     """
         Match against the first and esrap with the second.
     """
-    def __check(self, prodA, prodB, input: str, output: str, begin = None):
-        matched = match(Productions(prodA), tokenize(input), begin)
+    def check(self, ruleManagerA: RuleManager, ruleManagerB: RuleManager, input: str, output: str, begin = None):
+        matched = match(ruleManagerA, tokenize(input), begin)
         print(f'input: {input}, matched: {matched}, expected output: {output}')
         if matched == None:
             self.assertEqual(output, None)
         else:
             self.assertNotEqual(output, None)
             vals = matched.fullStr()
-            esr = matched.esrap(Productions(prodB))
+            esr = matched.esrap(ruleManagerA, ruleManagerB)
             print(f'input: {input}, esr: {esr}, expected output: {output}')
             self.assertEqual(esr, output)
+
+    def runSubtests(self, ruleManagerA, ruleManagerB, inputs, outputs):
+        for input, output in zip(inputs, outputs):
+            with self.subTest(input=input):
+                self.check(ruleManagerA, ruleManagerB, input, output)
+
+    def runSubtestsRegex(self, ruleManagerA, ruleManagerB, inputs, outputs):
+        for input, output in zip(inputs, outputs):
+            with self.subTest(input=input):
+                self.checkRegex(ruleManagerA, ruleManagerB, input, output)
+
+class ESRAP(unittest.TestCase, CheckUnit):
+    #@unittest.skip("impl |")
+    def test_regex(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        ruleManagerA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'calculation', '[0-9]{"pad": true}')])
+        input = "1"
+        outputExpect = " 1 "
+        matched = match(ruleManagerA, tokenize(input))
+
+        self.assertNotEqual(matched, None)
+        vals = matched.fullStr()
+        esr = matched.esrap(ruleManagerA, ruleManagerA)
+        self.assertEqual(esr, outputExpect)
+
+    #@unittest.skip("impl |")
+    def test_add(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        ruleManagerA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'calculation', 'term'),
+            ([uuids[1]], 'term', 'number "+" term'),
+            ([uuids[2]], 'term', 'number'),
+            ([uuids[3]], 'number', '[0-9]')])
+        input = "1+2"
+        outputExpect = input
+        matched = match(ruleManagerA, tokenize(input))
+
+        self.assertNotEqual(matched, None)
+        vals = matched.fullStr()
+        esr = matched.esrap(ruleManagerA, ruleManagerA)
+        self.assertEqual(esr, outputExpect)
+
+    #@unittest.skip("impl |")
+    def test_add2(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        ruleManagerA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'calculation', 'term'),
+            ([uuids[1]], 'term', 'number "+" term'),
+            ([uuids[2]], 'term', 'number'),
+            ([uuids[3]], 'number', '[0-9]')])
+        input = "1+2+3"
+        outputExpect = input
+        matched = match(ruleManagerA, tokenize(input))
+
+        self.assertNotEqual(matched, None)
+        vals = matched.fullStr()
+        esr = matched.esrap(ruleManagerA, ruleManagerA)
+        self.assertEqual(esr, outputExpect)
+    
+    #@unittest.skip("impl |")
+    def test_add_rename(self):
+        uuids = [uuid.uuid4() for i in range(10)]
+        ruleManagerA = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'calculation', 'term'),
+            ([uuids[1]], 'term', 'number "+" term'),
+            ([uuids[2]], 'term', 'number'),
+            ([uuids[3]], 'number', '[0-9]')])
+        ruleManagerB = Productiongenerator.createAllProductions([
+            ([uuids[0]], 'calculation', 'term'),
+            ([uuids[1]], 'term', 'number "plus"{"pad": true} term'),
+            ([uuids[2]], 'term', 'number'),
+            ([uuids[3]], 'number', '[0-9]')])
+        input = "1+2+3"
+        outputExpect = '1 plus 2 plus 3'
+        matched = match(ruleManagerA, tokenize(input))
+
+        self.assertNotEqual(matched, None)
+        vals = matched.fullStr()
+        esr = matched.esrap(ruleManagerA, ruleManagerB)
+        self.assertEqual(esr, outputExpect)
 
     #@unittest.skip("impl |")
     def test_mul_distributivity(self):
@@ -96,15 +138,16 @@ class ESRAP(unittest.TestCase):
         outputs = ['(1*(2))+(1*(3))']
 
         for input, output in zip(inputs, outputs): 
-            self.__check(prodD, prodF, input, output)
+            with self.subTest(input=input):
+                self.check(prodD, prodF, input, output)
 
     def test_reorder(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
+        ruleManagerA = Productiongenerator.createAllProductions([
             ([uuids[0]], 'calculation', 'term{"id": 0} "," term{"id": 1} "," term{"id": 2}'),
             ([uuids[1]], 'term', '[0-9]')])
         
-        prodB = Productiongenerator.createAllProductions([
+        ruleManagerB = Productiongenerator.createAllProductions([
             ([uuids[2]], 'calculation', 'term{"id": 2} "," term{"id": 1} "," term{"id": 0}', uuids[0]),
             ([uuids[1]], 'term', '[0-9]')])
 
@@ -112,15 +155,16 @@ class ESRAP(unittest.TestCase):
         outputs = ['3,2,1']
 
         for input, output in zip(inputs, outputs): 
-            self.__check(prodA, prodB, input, output)
+            with self.subTest(input=input):
+                self.check(ruleManagerA, ruleManagerB, input, output)
 
     def test_reorder2(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
+        ruleManagerA = Productiongenerator.createAllProductions([
             ([uuids[0]], 'calculation', 'term{"id": 0} "," term{"id": 1} "," term{"id": 2}'),
             ([uuids[1]], 'term', '[0-9]')])
         
-        prodB = Productiongenerator.createAllProductions([
+        ruleManagerB = Productiongenerator.createAllProductions([
             ([uuids[2]], 'calculation', 'term{"id": 2, "pad":true} term{"id": 1, "pad":true} term{"id": 0, "pad":true}', uuids[0]),
             ([uuids[1]], 'term', '[0-9]')])
 
@@ -128,32 +172,35 @@ class ESRAP(unittest.TestCase):
         outputs = [' 3  2  1 ']
 
         for input, output in zip(inputs, outputs): 
-            self.__check(prodA, prodB, input, output)
+            with self.subTest(input=input):
+                self.check(ruleManagerA, ruleManagerB, input, output)
 
     def test_reorder3(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
+        ruleManagerA = Productiongenerator.createAllProductions([
             ([uuids[0]], 'calculation', 'term{"id": 0} "," term{"id": 1} "," term{"id": 2}'),
             ([uuids[1]], 'term', '[0-9]{"id": 0}')])
         
-        prodB = Productiongenerator.createAllProductions([
+        ruleManagerB = Productiongenerator.createAllProductions([
             ([uuids[2]], 'calculation', 'term2{"id": 2} term2{"id": 1} term2{"id": 0}', uuids[0]),
             ([uuids[3]], 'term2', ' "(" [0-9]{"id": 0} ")" ', uuids[1])])
 
         inputs = ["1,2,3"]
         outputs = ['(3)(2)(1)']
 
-        for input, output in zip(inputs, outputs): 
-            self.__check(prodA, prodB, input, output)
+        for input, output in zip(inputs, outputs):
+            with self.subTest(input=input):
+                self.check(ruleManagerA, ruleManagerB, input, output)
 
     #@unittest.skip("impl |")
     def test_or(self):
         uuids = [uuid.uuid4() for i in range(10)]
         begin = [uuids[0], uuids[1]]
-        prodA = Productiongenerator.createAllProductions([(begin, 'number', '"a" | "b"')])
+        ruleManagerA = Productiongenerator.createAllProductions([(begin, 'number', '"a" | "b"')])
         inputs = ["a", "b"]
-        for input in inputs: 
-            self.__check(prodA, prodA, input, input, begin)
+        for input in inputs:
+            with self.subTest(input=input):
+                self.check(ruleManagerA, ruleManagerA, input, input, begin)
 
     def test_zeroOrMore(self):
         pass
@@ -163,42 +210,45 @@ class ESRAP(unittest.TestCase):
         uuids = [uuid.uuid4() for i in range(10)]
         begin = [uuids[0], uuids[1]]
         beginB = [uuids[0], uuids[1], uuids[2]]
-        prodA = Productiongenerator.createAllProductions([(begin, 'number', '"a" | "b"')])
-        prodB = Productiongenerator.createAllProductions([(beginB, 'number', '"a" | "b" | "c"')])
+        ruleManagerA = Productiongenerator.createAllProductions([(begin, 'number', '"a" | "b"')])
+        ruleManagerB = Productiongenerator.createAllProductions([(beginB, 'number', '"a" | "b" | "c"')])
         inputs = ["a", "b"]
-        for input in inputs: 
-            self.__check(prodA, prodB, input, input, begin)
+        for input in inputs:
+            with self.subTest(input=input):
+                self.check(ruleManagerA, ruleManagerB, input, input, begin)
 
     #@unittest.skip("impl |")
     def test_or3(self):
         uuids = [uuid.uuid4() for i in range(10)]
         begin = [uuids[0], uuids[1]]
-        prodA = Productiongenerator.createAllProductions([(begin, 'number', '"a" | [0-9]')])
+        ruleManagerA = Productiongenerator.createAllProductions([(begin, 'number', '"a" | [0-9]')])
         inputs = ["a", "0", "9"]
-        for input in inputs: 
-            self.__check(prodA, prodA, input, input, begin)
+        for input in inputs:
+            with self.subTest(input=input):
+                self.check(ruleManagerA, ruleManagerA, input, input, begin)
 
     #@unittest.skip("impl |")
     def test_or4(self):
         uuids = [uuid.uuid4() for i in range(10)]
         begin = [uuids[0], uuids[1]]
         beginB = [uuids[0], uuids[1], uuids[2]]
-        prodA = Productiongenerator.createAllProductions([(begin, 'number', '"a" | [0-9]')])
-        prodB = Productiongenerator.createAllProductions([(begin, 'number', '"a" | [0-9] "BOOP"')])
+        ruleManagerA = Productiongenerator.createAllProductions([(begin, 'number', '"a" | [0-9]')])
+        ruleManagerB = Productiongenerator.createAllProductions([(begin, 'number', '"a" | [0-9] "BOOP"')])
         inputs = ["a", "0", "9"]
         outputs = ["a", "0BOOP", "9BOOP"]
         
         for input, output in zip(inputs, outputs): 
-            self.__check(prodA, prodB, input, output, begin)
+            with self.subTest(input=input):
+                self.check(ruleManagerA, ruleManagerB, input, output, begin)
 
     #@unittest.skip("impl |")
     def test_or4(self):
         uuids = [uuid.uuid4() for i in range(10)]
         begin = [uuids[0], uuids[1]]
-        prodA = Productiongenerator.createAllProductions([
+        ruleManagerA = Productiongenerator.createAllProductions([
             (begin, 'number', '"a" | [0-9] txt'),
             ([uuids[4]], 'txt', ' "BOOPly" ')])
-        prodB = Productiongenerator.createAllProductions([
+        ruleManagerB = Productiongenerator.createAllProductions([
             ([uuids[0]], 'number', '"a"'),
             ([uuids[3]], 'number', '[0-9]{"id": 0} txt{"id": 1}', uuids[1]),
             ([uuids[4]], 'txt', ' "BOOPly" ')
@@ -207,7 +257,8 @@ class ESRAP(unittest.TestCase):
         outputs = ["a", "0BOOPly", "9BOOPly"]
         
         for input, output in zip(inputs, outputs): 
-            self.__check(prodA, prodB, input, output, begin)
+            with self.subTest(input=input):
+                self.check(ruleManagerA, ruleManagerB, input, output, begin)
 
     def test_zeroOrMore(self):
         pass
@@ -215,290 +266,164 @@ class ESRAP(unittest.TestCase):
     #@unittest.skip("impl |")
     def test_alo(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a"{"alo": true, "pad": true}')])
+        ruleManagerA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a"{"alo": true, "pad": true}')])
         inputs = [" a ", " a  a ", " a  a  a "]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("impl |")
     def test_alo2(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
+        ruleManagerA = Productiongenerator.createAllProductions([
             ([uuids[0]], 'numbers', 'number{"alo": true}'),
             ([uuids[1]], 'number', '"a"{"pad": true}'),
             ])
         inputs = [" a ", " a  a ", " a  a  a "]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("impl |")
     def test_alo3(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a"{"alo": true, "pad": true} "b"{"alo": true, "pad": true}')])
+        ruleManagerA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a"{"alo": true, "pad": true} "b"{"alo": true, "pad": true}')])
         inputs = [" a  b ", " a  b ", " a  a  b ", " a  a  a  b ", " a  b  b ", " a  b  b  b ", " a  a  b  b "]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("impl |")
     def test_alo4(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
+        ruleManagerA = Productiongenerator.createAllProductions([
             ([uuids[0]], 'numbers', 'number{"alo": true}'),
             ([uuids[1]], 'number', '"a" ","'),
             ])
         inputs = ["a,", "a,a,", "a,a,a,"]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("impl |")
     def test_alo5(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
+        ruleManagerA = Productiongenerator.createAllProductions([
             ([uuids[0]], 'numbers', 'number_sep{"alo": true} number'),
             ([uuids[1]], 'number_sep', 'number ","'),
             ([uuids[2]], 'number', '"a"'),
             ])
         inputs = ["a,a", "a,a,a", "a,a,a,a"]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
 
     #@unittest.skip("impl |")
     def test_optional(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a" "b"{"opt": true, "pad": true}')])
+        ruleManagerA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a" "b"{"opt": true, "pad": true}')])
         inputs = ["a", "a b "]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("impl |")
     def test_optional2(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a" "b"{"opt": true, "pad": true} "a"{"pad": true}')])
+        ruleManagerA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a" "b"{"opt": true, "pad": true} "a"{"pad": true}')])
         inputs = ["a a ", "a b  a "]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     @unittest.skip("BROKEN")
     def test_optional3(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a" "b"{"opt": true, "pad": true} "b"{"opt": true, "pad": true} "a"{"pad": true}')])
+        ruleManagerA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a" "b"{"opt": true, "pad": true} "b"{"opt": true, "pad": true} "a"{"pad": true}')])
         inputs = ["a a ", "a b  a ", "a b  b  a "]
         outputs = copy.copy(inputs)
         outputs[1] = None
         for input, output in zip(inputs, outputs):
-            self.__check(prodA, prodA, input, output)
+            with self.subTest(input=input):
+                self.check(ruleManagerA, ruleManagerA, input, output)
         
 
     #@unittest.skip("impl |")
     def test_optional4(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a"{"opt": true, "pad": true} "b"')])
+        ruleManagerA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a"{"opt": true, "pad": true} "b"')])
         inputs = [" a b", "b"]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("impl |")
     def test_optional5(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
+        ruleManagerA = Productiongenerator.createAllProductions([
             ([uuids[0]], 'number', '"a"{"opt": true, "pad": true} ab'),
             ([uuids[1]], 'ab', '"ab"'),
             ])
         inputs = [" a ab", "ab"]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("impl |")
     def test_optional6(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
+        ruleManagerA = Productiongenerator.createAllProductions([
             ([uuids[0]], 'number', '"a"{"opt": true, "pad": true} ab'),
             ([uuids[1]], 'ab', '"a"{"pad": true} "b"{"pad": true}'),
             ])
         inputs = [" a  b ", " a  a  b "]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("impl |")
     def test_optional_alo(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a"{"alo": true, "pad": true} "b"{"opt": true, "pad": false}')])
+        ruleManagerA = Productiongenerator.createAllProductions([([uuids[0]], 'number', '"a"{"alo": true, "pad": true} "b"{"opt": true, "pad": false}')])
         inputs = [" a ", " a b", " a  a b"]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
 
     #@unittest.skip("impl |")
     def test_optional_alo2(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
+        ruleManagerA = Productiongenerator.createAllProductions([
             ([uuids[0]], 'numbers', 'number_sep{"alo": true} number{"opt": true}'),
             ([uuids[1]], 'number_sep', 'number ","'),
             ([uuids[2]], 'number', '"a"'),
             ])
         inputs = ["a,a", "a,a,a", "a,a,a,a", "a,", "a,a,", "a,a,a,"]
         #inputs = ['a,a']
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
 
     #@unittest.skip("impl |")
     def test_any(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
+        ruleManagerA = Productiongenerator.createAllProductions([
             ([uuids[0]], 'numbers', 'number_sep{"alo": true, "opt": true}'),
             ([uuids[1]], 'number_sep', 'number ","'),
             ([uuids[2]], 'number', '"a"'),
             ])
         inputs = ["a,", "a,a,", "a,a,a,"]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("impl |")
     def test_any2(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
+        ruleManagerA = Productiongenerator.createAllProductions([
             ([uuids[0]], 'numbers', '"b"{"pad": true} number_sep{"alo": true, "opt": true}'),
             ([uuids[1]], 'number_sep', 'number ","'),
             ([uuids[2]], 'number', '"a"'),
             ])
         inputs = [" b ", " b a,", " b a,a,", " b a,a,a,"]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("impl |")
     def test_any3(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
+        ruleManagerA = Productiongenerator.createAllProductions([
             ([uuids[0]], 'numbers', '"b"{"pad": true} "abc"{"alo": true, "opt": true, "pad": true}'),
             ])
         inputs = [" b ", " b  abc ", " b  abc  abc ", " b  abc  abc  abc "]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("impl |")
     def test_any4(self):
         uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
+        ruleManagerA = Productiongenerator.createAllProductions([
             ([uuids[0]], 'numbers', 'number_sep{"alo": true, "opt": true} "b"'),
             ([uuids[1]], 'number_sep', 'number ","'),
             ([uuids[2]], 'number', '"a"'),
             ])
         inputs = ["b", "a,b", "a,a,b", "a,a,a,b"]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
-
-    @unittest.skip("grouping")
-    def test_grouping(self):
-        uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
-            ([uuids[0]], 'letter', '( "a" )'),
-            ])
-        inputs = ["a"]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
-
-    #@unittest.skip("read")
-    def test_read(self):
-        uuids = [uuid.uuid4() for i in range(10)]
-        prodA = parseIR("""
-production →  name separator{"pad": false} "|"{"opt": true} to_match
-to_match → sub | sub "|"{"pad": true} to_match
-sub → token settings{"opt": true} | "(" to_match ")" settings{"opt": true}
-settings → "{" token{"alo": true, "opt": true} "}"
-name → [a-zA-Z0-9]+
-token → [a-zA-Z0-9!<>#$\\\\"\\\\'\\\\+\\\\-\\\\*_\\\\.!:]+
-separator → ":"
-""".splitlines())
-        inputs = [
-            "abc:\"foo\"",
-            "abc:\"foo\" | glue",
-            "abc:\"foo\"{'pad':true}",
-            "abc:(\"foo\" | glue)",
-            "abc:(\"foo\" | glue){'pad':true}",
-            "abc:(\"foo\" | glue){'pad':true}",
-            "abc:(\"foo\" | glue){'pad':true} | (\"foo\" | glue){'pad':true}",
-            ]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
-
-    def test_read_reorder(self):
-        uuids = [uuid.uuid4() for i in range(10)]
-        prodA = parseIR("""{"id": "a"}
-calculation → term "," term "," term
-term → [0-9]
-""".splitlines())
-        
-        prodB = parseIR("""{"id": "b"}
-calculation{"compatible": "a-1-0"} → term{"id": 2} "," term{"id": 1} "," term{"id": 0}
-term{"compatible": "a-2-0"} → [0-9]{"id": 0}
-""".splitlines())
-
-        inputs = ["1,2,3"]
-        outputs = ['3,2,1']
-
-        for input, output in zip(inputs, outputs): 
-            self.__check(prodA, prodB, input, output)
-        print('------------')
-        for output, input in zip(inputs, outputs): 
-            self.__check(prodB, prodA, input, output)
-
-    def test_read_reorder2(self):
-        uuids = [uuid.uuid4() for i in range(10)]
-        prodA = parseIR("""{"id": "a"}
-calculation → term "," term "," term
-term → [0-9]
-""".splitlines())
-        
-        prodB = parseIR("""{"id": "b"}
-calculation{"compatible": "a-1-0"} → term{"id": 2} "," term{"id": 1} "," "strange"{"pad": true} "place"{"pad": true} term{"id": 0}
-term{"compatible": "a-2-0"} → [0-9]{"id": 0}
-""".splitlines())
-
-        inputs = ["1,2,3"]
-        outputs = ['3,2, strange  place 1']
-
-        for input, output in zip(inputs, outputs): 
-            self.__check(prodA, prodB, input, output)
-        print('------------')
-        for output, input in zip(inputs, outputs): 
-            self.__check(prodB, prodA, input, output)
-
-    @unittest.skip("bracket_transform")
-    def test_bracket_transform(self):
-        uuids = [uuid.uuid4() for i in range(10)]
-        prodA = parseIR("""
-production →  name separator{"pad": false} "|"{"opt": true} to_match
-to_match → sub | sub "|"{"pad": true} to_match
-sub → token settings{"opt": true} | "(" to_match ")" settings{"opt": true}
-settings → "{" token{"alo": true, "opt": true} "}"
-name → [a-zA-Z0-9]+
-token → [a-zA-Z0-9!<>#$\\\\"\\\\'\\\\+\\\\-\\\\*_\\\\.!:]+
-separator → ":"
-""".splitlines())
-
-        prodB = parseIR("""
-production →  name separator{"pad": false} "|"{"opt": true} to_match
-to_match → sub | sub "|"{"pad": true} to_match
-sub → token settings{"opt": true}
-settings → "{" token{"alo": true, "opt": true} "}"
-name → [a-zA-Z0-9]+
-token → [a-zA-Z0-9!<>#$\\\\"\\\\'\\\\+\\\\-\\\\*_\\\\.!:]+
-separator → ":"
-""".splitlines())
-
-        inputs = [
-            "abc:\"foo\"",
-            #"abc:\"foo\" | glue",
-            #"abc:\"foo\"{'pad':true}",
-            #"abc:(\"foo\" | glue)",
-            #"abc:(\"foo\" | glue){'pad':true}",
-            #"abc:(\"foo\" | glue){'pad':true}",
-            #"abc:(\"foo\" | glue){'pad':true} | (\"foo\" | glue){'pad':true}",
-            ]
-        for input in inputs:
-            self.__check(prodA, prodA, input, input)
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("impl |")
     def test_bnf(self):
@@ -506,7 +431,7 @@ separator → ":"
         begin = [uuids[0],  uuids[1]]
         
         """
-        prodBNF = Productiongenerator.createAllProductions([
+        ruleManagerBNF = Productiongenerator.createAllProductions([
             (begin,                             'syntax',         'rule | rule syntax'),
             ([uuids[2]],                        'rule',           'opt-whitespace rule-name opt-whitespace "::=" opt-whitespace expression line-end'),
             ([uuids[3]],                        'opt-whitespace', '[ ]*'),
@@ -532,7 +457,7 @@ separator → ":"
             
         
         
-        prodBNF = Productiongenerator.createAllProductions([
+        ruleManagerBNF = Productiongenerator.createAllProductions([
             (begin,                             'syntax',         'rule | rule syntax'),
             ([uuids[2]],                        'rule',           'rule-name "::="{"pad": true} expression line-end'),
             ([uuids[4],  uuids[5], uuids[6]],   'expression',     'list | list "|" expression'),
@@ -547,13 +472,201 @@ separator → ":"
             ])
 
         inputs = ["hello ::= a\n", "hello ::= a\na ::= b\n"]
-        for input in inputs: 
-            outputExpect = input
-            interupts = ['+', '-', '*', '/', '(', ')', '\n', ',']
-            matched = match(Productions(prodBNF), tokenize(input, interupts), begin)
+        for input in inputs:
+            with self.subTest(input=input):
+                outputExpect = input
+                interupts = ['+', '-', '*', '/', '(', ')', '\n', ',']
+                matched = match(ruleManagerBNF, tokenize(input, interupts), begin)
 
-            self.assertNotEqual(matched, None)
-            vals = matched.fullStr()
-            esr = matched.esrap(Productions(prodBNF))
-            self.assertEqual(esr, outputExpect)
+                self.assertNotEqual(matched, None)
+                vals = matched.fullStr()
+                esr = matched.esrap(ruleManagerBNF, ruleManagerBNF)
+                self.assertEqual(esr, outputExpect)
 
+
+class READ(unittest.TestCase, CheckUnit):
+    #@unittest.skip("read")
+    def test_read(self):
+        ruleManagerA = parseIR("""
+production →  name separator{"pad": false} "|"{"opt": true} to_match
+to_match → sub | sub "|"{"pad": true} to_match
+sub → token settings{"opt": true} | "(" to_match ")" settings{"opt": true}
+settings → "{" token{"alo": true, "opt": true} "}"
+name → [a-zA-Z0-9]+
+token → [a-zA-Z0-9!<>#$\\\\"\\\\'\\\\+\\\\-\\\\*_\\\\.!:]+
+separator → ":"
+""".splitlines())
+        inputs = [
+            "abc:\"foo\"",
+            "abc:\"foo\" | glue",
+            "abc:\"foo\"{'pad':true}",
+            "abc:(\"foo\" | glue)",
+            "abc:(\"foo\" | glue){'pad':true}",
+            "abc:(\"foo\" | glue){'pad':true}",
+            "abc:(\"foo\" | glue){'pad':true} | (\"foo\" | glue){'pad':true}",
+            ]
+        projectManager = ProjectManager([ruleManagerA])
+        projectManager.processProductions()
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
+
+    def test_read_reorder(self):
+        ruleManagerA = parseIR("""{"id": "a"}
+calculation → term "," term "," term
+term → [0-9]
+""".splitlines())
+        
+        ruleManagerB = parseIR("""{"id": "b"}
+calculation{"compatible": "a-1-0"} → term{"id": 2} "," term{"id": 1} "," term{"id": 0}
+term{"compatible": "a-2-0"} → [0-9]{"id": 0}
+""".splitlines())
+
+        inputs = ["1,2,3"]
+        outputs = ['3,2,1']
+
+        projectManager = ProjectManager([ruleManagerA, ruleManagerB])
+        projectManager.processProductions()
+
+        for input, output in zip(inputs, outputs): 
+            with self.subTest(input=input):
+                self.check(ruleManagerA, ruleManagerB, input, output)
+        print('------------')
+        for output, input in zip(inputs, outputs): 
+            with self.subTest(input=input):
+                self.check(ruleManagerB, ruleManagerA, input, output)
+
+    def test_read_reorder2(self):
+        ruleManagerA = parseIR("""{"id": "a"}
+calculation → term "," term "," term
+term → [0-9]
+""".splitlines())
+        
+        ruleManagerB = parseIR("""{"id": "b"}
+calculation{"compatible": "a-1-0"} → term{"id": 2} "," term{"id": 1} "," "strange"{"pad": true} "place"{"pad": true} term{"id": 0}
+term{"compatible": "a-2-0"} → [0-9]{"id": 0}
+""".splitlines())
+
+        inputs = ["1,2,3"]
+        outputs = ['3,2, strange  place 1']
+
+        projectManager = ProjectManager([ruleManagerA, ruleManagerB])
+        projectManager.processProductions()
+
+        for input, output in zip(inputs, outputs): 
+            with self.subTest(input=input):
+                self.check(ruleManagerA, ruleManagerB, input, output)
+        print('------------')
+        for output, input in zip(inputs, outputs): 
+            with self.subTest(input=input):
+                self.check(ruleManagerB, ruleManagerA, input, output)
+
+    #@unittest.skip("noitcudorp")
+    def test_read_noitcudorp(self):
+        ruleManagerA = parseIR("""{"id": "a"}
+term{"compatible": "b-1-0"} → new_name{"id": 0, "convert_only": true} [ab]+{"id": 1, "pad": true}
+new_name ⇇ [a-zA-A][a-zA-A0-9_-]*
+""".splitlines())
+
+        ruleManagerB = parseIR("""{"id": "b"}
+term → new_name [ab]+{"pad": true}
+new_name → [a-zA-A][a-zA-A0-9_-]*
+""".splitlines())
+
+        inputs = ["ababba"]
+        outputs = ["[a-zA-A][a-zA-A0-9_-]* ababba "]
+        
+        projectManager = ProjectManager([ruleManagerA, ruleManagerB])
+        projectManager.processProductions()
+        self.runSubtestsRegex(ruleManagerA, ruleManagerB, inputs, outputs)
+
+    #@unittest.skip("noitcudorp")
+    def test_read_noitcudorp2(self):
+        ruleManagerA = parseIR("""{"id": "a"}
+term{"compatible": "b-1-0"} → new_name{"id": 0, "convert_only": true} [ab]+{"id": 1, "pad": true} new_name{"id": 2, "convert_only": true}
+new_name ⇇ [a-zA-A][a-zA-A0-9_-]*
+""".splitlines())
+
+        ruleManagerB = parseIR("""{"id": "b"}
+term → new_name [ab]+{"pad": true} new_name
+new_name → [a-zA-A][a-zA-A0-9_-]*
+""".splitlines())
+
+        inputs = ["ababba"]
+        outputs = ["[a-zA-A][a-zA-A0-9_-]* ababba [a-zA-A][a-zA-A0-9_-]*"]
+        
+        projectManager = ProjectManager([ruleManagerA, ruleManagerB])
+        projectManager.processProductions()
+        
+        self.runSubtestsRegex(ruleManagerA, ruleManagerB, inputs, outputs)
+
+
+class PROJECT(unittest.TestCase, CheckUnit):
+
+    #@unittest.skip("import")
+    def test_import(self):
+        ruleManagerA = parseIR("""{"id": "a", "imports": ["b"]}
+start → number
+number → [0-9]
+""".splitlines())
+
+        ruleManagerB = parseIR("""{"id": "b"}
+number → [0-9]
+""".splitlines())
+
+        inputs = [
+            "0",
+            ]
+        
+        projectManager = ProjectManager([ruleManagerA, ruleManagerB])
+        projectManager.processProductions()
+
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
+
+    @unittest.skip("bracket_transform")
+    def test_bracket_transform(self):
+        ruleManagerA = parseIR("""{"id": "mid", "imports": ["ir"]}
+production →  name separator{"pad": false} "|"{"opt": true} to_match
+to_match → sub | sub "|"{"pad": true} to_match
+sub → token settings{"opt": true} | "(" to_match ")" settings{"opt": true}
+settings → "{" token{"alo": true, "opt": true} "}"
+name → [a-zA-Z0-9]+
+token → [a-zA-Z0-9!<>#$\\\\"\\\\'\\\\+\\\\-\\\\*_\\\\.!:]+
+separator → ":"
+new_name ⇇ [a-zA-A0-9_-]
+""".splitlines())
+
+        ruleManagerB = parseIR("""{"id": "ir"}
+production →  name separator{"pad": false} "|"{"opt": true} to_match
+to_match → sub | sub "|"{"pad": true} to_match
+sub → token settings{"opt": true}
+settings → "{" token{"alo": true, "opt": true} "}"
+name → [a-zA-Z0-9]+
+token → [a-zA-Z0-9!<>#$\\\\"\\\\'\\\\+\\\\-\\\\*_\\\\.!:]+
+separator → ":"
+""".splitlines())
+
+        inputs = [
+            "abc:\"foo\"",
+            "abc:\"foo\" | glue",
+            "abc:\"foo\"{'pad':true}",
+            "abc:(\"foo\" | glue)",
+            #"abc:(\"foo\" | glue){'pad':true}",
+            #"abc:(\"foo\" | glue){'pad':true}",
+            #"abc:(\"foo\" | glue){'pad':true} | (\"foo\" | glue){'pad':true}",
+            ]
+        outputs = [
+            "abc:\"foo\"",
+            "abc:\"foo\" | glue",
+            "abc:\"foo\"{'pad':true}",
+"""abc:[a-zA-A][a-zA-A0-9_-]*
+[a-zA-A][a-zA-A0-9_-]*: "foo" | glue
+""",
+            #"abc:(\"foo\" | glue){'pad':true}",
+            #"abc:(\"foo\" | glue){'pad':true}",
+            #"abc:(\"foo\" | glue){'pad':true} | (\"foo\" | glue){'pad':true}",
+        ]
+
+        projectManager = ProjectManager([ruleManagerA, ruleManagerB])
+        projectManager.processProductions()
+
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
+        self.runSubtests(ruleManagerA, ruleManagerB, inputs, inputs)

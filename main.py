@@ -7,7 +7,7 @@ unittest.main()
 
 """
 suite = unittest.TestSuite()
-suite.addTest(ESRAP("test_read_reorder2"))
+suite.addTest(ESRAP("test_import"))
 runner = unittest.TextTestRunner()
 runner.run(suite)
 """

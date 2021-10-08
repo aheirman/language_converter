@@ -4,6 +4,8 @@ import copy
 import json
 import re
 import uuid
+import rstr
+import random
 
 from enum import Enum
 
@@ -58,22 +60,53 @@ class Terminal:
     def __str__(self):
         return f'{{Terminal: "{self.rule}}}'
 
+class Noitcudorp:
+    def process(self):
+        pass
+    
+    def generate(self):
+        return rstr.xeger(self.tokens[0].tok)
+
+    def __init__(self, uuid, name: str, tokens: list[Token], settings):
+        self.name = name
+        self.uuid = uuid
+        self.settings = settings
+        if not len(tokens) == 1:
+            print(f'len(tokens): {len(tokens)}, tokens: {str([str(tok) for tok in tokens])}')
+            assert False 
+        self.tokens = tokens
+
+
+    def __str__(self):
+        #tokensStr = ' '.join([str(elem) for elem in self.tokens])
+        return f'Noitcudorp {{ uuid: {self.uuid}, name: {self.name}, tokens: {self.tokens}}}'
+
 class Production:
-    def process(self, productions):
+    def process(self, ruleManager):
         steps = []
         #print(f'Production tokens: {[str(t) for t in self.tokens]}')
+        noitcudorps = []
         for tok in self.tokens:
             #print(f'production process name: {self.name}, token: "{tok.tok}"')
             
             if containsAndTrue(tok.settings, "regex") or containsAndTrue(tok.settings, "quote"):
                 steps.append(Terminal(tok))
-            else:
-                prod = productions.productionWithNameExists(tok.tok)
-                if prod == False:
+            elif not containsAndTrue(tok.settings, "convert_only"):
+                exists = ruleManager.productionWithNameExists(tok.tok)
+                if exists:
+                    steps.append(NonTerminal(tok))
+                else:
                     print(f'{bcolors.FAIL}Production with name "{tok.tok}" missing!{bcolors.ENDC}')
                     assert False
+            else:
+                exists = ruleManager.noitcudorpWithNameExists(tok.tok)
+                if exists:
+                    noitcudorps.append(NonTerminal(tok))
+                else:
+                    print(f'{bcolors.FAIL}Noitcudorp with name "{tok.tok}" missing!{bcolors.ENDC}')
+                    assert False
 
-                steps.append(NonTerminal(tok))
+        self.noitcudorps = noitcudorps   
         self.steps = steps
     
     def __init__(self, uuid, name: str, tokens: list[Token], uuid_compat = None):
@@ -81,19 +114,21 @@ class Production:
         self.tokens = tokens
         self.uuid = uuid
         self.uuid_compat = uuid_compat
+        self.noitcudorps = []
 
     def __str__(self):
+        noitcudorpsStr = '\n\t\t' + '\n\t\t'.join([str(elem) for elem in self.noitcudorps])
         if hasattr(self, 'steps'):
             #tokensStr = ' '.join([str(elem) for elem in self.tokens])
             stepStr   = '\n\t' + '\n\t'.join([str(elem) for elem in self.steps])
             #return f'Production {{ name: {self.name}  tokens: [ {tokensStr} ], {stepStr} }}'
             uuidCompatStr = f', uuid_compat: {self.uuid_compat}' if self.uuid_compat != None else ''
-            return f'Production {{ uuid: {self.uuid}, name: {self.name}, {stepStr}{uuidCompatStr}}}'
+            return f'Production {{ uuid: {self.uuid}, name: {self.name}, {stepStr}{uuidCompatStr}, \n\tnoitcudorps:{noitcudorpsStr}}}'
             #return f'Production {{ name: {self.name}, {stepStr}{uuidCompatStr}}}'
         else:
             tokensStr = ' '.join([str(elem) for elem in self.tokens])
             #return f'Production {{ uuid: {self.uuid}, name: {self.name}, {tokensStr} }}'
-            return f'Production {{ name: {self.name}, {tokensStr} }}'
+            return f'Production {{ name: {self.name}, \n\t{tokensStr}, \n\tnoitcudorps:{noitcudorpsStr}}}'
 
     def len(self):
         return len(self.steps)
@@ -189,16 +224,17 @@ class Productiongenerator():
             elif ((status in [TokenizeSettings.VAL_FINISHED, TokenizeSettings.NORMAL, TokenizeSettings.REGEXPOSEND]) and c == '{'):
                 status = TokenizeSettings.SETTINGS_BLOCK
                 strSettings += c
-            elif (status == TokenizeSettings.SETTINGS_BLOCK and c == '}'):
-                status = TokenizeSettings.END
-                strSettings += c
+            elif (status == TokenizeSettings.SETTINGS_BLOCK):
+                if c == '}':
+                    status = TokenizeSettings.END
+                    strSettings += c
+                else:
+                    strSettings += c
             elif (status in [TokenizeSettings.NORMAL, TokenizeSettings.QUOTE_DOUBLE, TokenizeSettings.QUOTE_SINGLE, TokenizeSettings.REGEXPOSEND]):
                 if (c == '\\' and not escaped):
                     nextEscaped = True
                 else:
                     curr += c
-            elif (status == TokenizeSettings.SETTINGS_BLOCK):
-                strSettings += c
             else:
                 print(f'ERROR: status: {status}')
                 assert False
@@ -236,28 +272,40 @@ class Productiongenerator():
         prods = []
         for rule in list:
             prods.extend(Productiongenerator.__createProductions(*rule))
-        return prods
-
+        manager = RuleManager(f'generated-{random.randint(0,65536)}', prods, [], [])
+        manager.process(([], []))
+        return manager
+"""
     @staticmethod
     def createAllProductionsGenUUID(list: list):
         prods = []
         for index, rule in enumerate(list):
             uuids = self.__genUUID(index, rule[3])
             prods.extend(Productiongenerator.__createProductions(uuids, *rule))
-        return prods
+        return RuleManager(prods, [], [])
+"""
 
-class Productions:
+class RuleManager:
 
     def generateMap(self):
         self.RuleProdMap = dict(zip([prod.stdandard for prod in self.productions], [prod.stdandard for prod in self.productions]))
 
-    def __init__(self, productions: list[Production]):
-        
+    def __init__(self, name, productions: list[Production], noitcudorps: list[Noitcudorp], imports: list[str]):
+        self.name        = name
         self.productions = productions
+        self.noitcudorps = noitcudorps
+        self.imports     = imports
+        self.__checkForErrors()
+
+    def process(self, importsState: [list, list]):
+        self.other_productions = importsState[0]
+        self.other_noitcudorp = importsState[1]
+        print('------------')
+        print([str(p) for p in self.other_productions])
+        print([str(p) for p in self.other_noitcudorp])
+
         for prod in self.productions:
             prod.process(self)
-
-        self.__checkForErrors()
 
     def __checkForErrors(self):
         uuids = []
@@ -268,10 +316,22 @@ class Productions:
                 uuids.append(prod.uuid)
 
     def __str__(self):
-        return '\n'.join([str(elem) for elem in self.productions])
+        return '\n'.join([str(elem) for elem in (self.productions + self.noitcudorps + ['--------', 'IMPORTED', '--------'] + self.other_productions + self.other_noitcudorp )])
 
     def getProduction(self, uuid):
         for prod in self.productions:
+            if (prod.uuid == uuid):
+                return prod
+        for prod in self.other_productions:
+            if (prod.uuid == uuid):
+                return prod
+        return None
+
+    def getNoitcudorp(self, name: str):
+        for noitcudorp in self.noitcudorps:
+            if (noitcudorp.name == name):
+                return noitcudorp
+        for prod in self.other_noitcudorps:
             if (prod.uuid == uuid):
                 return prod
         return None
@@ -280,13 +340,32 @@ class Productions:
         for prod in self.productions:
             if (prod.uuid_compat == uuid):
                 return prod
+        for prod in self.other_productions:
+            if (prod.uuid_compat == uuid):
+                return prod
         return None
 
     def productionWithNameExists(self, name: str):
+        print(f'aaaaaaaaa')
+        print([str(p) for p in self.productions])
+        print([str(p) for p in self.other_productions])
         for prod in self.productions:
             if (prod.name == name):
+                return True
+        for prod in self.other_productions:
+            if (prod.name == name):
+                return True
+        return False
+
+    def noitcudorpWithNameExists(self, name: str):
+        for noitcudorp in self.noitcudorps:
+            if (noitcudorp.name == name):
+                return True
+        for noitcudorp in self.other_noitcudorps:
+            if (noitcudorp.name == name):
                 return True
         return False
 
     def getEquivalentProduction(self, standardese) -> Production:
         pass
+

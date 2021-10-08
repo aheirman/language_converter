@@ -1,5 +1,5 @@
-TODO: 
-    escape characters
-    
+How do multiple files work?
+    files can be imported using import key of the settings in the file.
+    The import key must refer to the id of the desired file.
 
 
