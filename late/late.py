@@ -8,7 +8,7 @@ import html
 
 
 from late.helper import *
-from late.parser import *
+from late.expression import *
 
 class UnwrapMethod(Enum):
     ESRAP = 1,
@@ -398,7 +398,7 @@ class State:
                 compatibility = Compatibility.EXPLICIT_EXPORT
             else:
                 if self.production.uuid_compat == None:
-                    print(f'{bcolors.FAIL}ERROR: PRODUCTION "{self.production.name}" NEEDS EXPLICIT COMPATIBILITY{bcolors.ENDC}')
+                    print(f'{bcolors.FAIL}ERROR: PRODUCTION "{self.production.name}:{self.production.uuid}" NEEDS EXPLICIT COMPATIBILITY{bcolors.ENDC}')
                     assert False
 
                 prodB = rManagerB.getProduction(self.production.uuid_compat)
@@ -569,30 +569,63 @@ def complete(table, state: State):
             newStates.append(newState)
     return newStates
 
-def tokenize(input: str, interupts = ['+', '-', '*', ':', '/', '(', ')', '\n', ',', '{', '}', '\'']):
-        tokens = []
-        curr = ''
-        status = TokenizeSettings.NORMAL
-        for c in input:
-            #print('status: ' + ' '.join(map(str, ret)) + ' adding char: ' + c)
-            if ((status == TokenizeSettings.NORMAL) and c == ' '): 
-                tokens.append(curr)
-                curr = ''
-            elif ((status == TokenizeSettings.NORMAL) and (c in interupts)):
-                tokens.append(curr)
-                tokens.append(c)
-                curr = ''
-            elif (status == TokenizeSettings.NORMAL):
-                curr += c
-            else:
-                print(f'ERROR: status: {status}')
-                assert False
+class TokenizeSettings(Enum):
+    UNKNOWN              = -1,
+    NORMAL               = 0,
+    NORMAL_SETTINGS_INT  = 1,
+    QUOTE_SINGLE         = 2,
+    QUOTE_DOUBLE         = 3,
+    SQUARE_BRACKET       = 4
 
-        if(curr != ''):
-            tokens.append(curr)
+def tokenize(input: str, interupts = ['+', '-', '*', ':', '/', '(', ')', '\n', ',', '{', '}', '\'', '→', '⇇', ';']):
+    tokens = []
+    curr = ''
+    status = TokenizeSettings.NORMAL
+    for c in input:
+        #tokens_txt = ' '.join(map(str, tokens))
+        #print(f'status: {status}, curr: "{curr}" adding char: ' + c)
         
-        tokens = [tok for tok in tokens if (len(tok) != 0)]
-        return tokens
+        if status == TokenizeSettings.NORMAL_SETTINGS_INT and c == '{':
+            tokens.append(curr)
+            status = TokenizeSettings.NORMAL
+            curr = '{'
+        elif (status in [TokenizeSettings.NORMAL, TokenizeSettings.NORMAL_SETTINGS_INT] and c in [' ', '\n']): 
+            tokens.append(curr)
+            if c == '\n':
+                tokens.append(c)
+            status = TokenizeSettings.NORMAL
+            curr = ''
+        elif (status == TokenizeSettings.NORMAL and c == '"'):
+            tokens.append(curr)
+            curr = c
+            status = TokenizeSettings.QUOTE_DOUBLE
+        elif (status == TokenizeSettings.NORMAL and c == '['):
+            tokens.append(curr)
+            curr = c
+            status = TokenizeSettings.SQUARE_BRACKET
+        elif (status == TokenizeSettings.QUOTE_DOUBLE):
+            curr += c
+            if c == '"':
+                status = TokenizeSettings.NORMAL
+        elif (status == TokenizeSettings.SQUARE_BRACKET):
+            curr += c
+            if c == ']':
+                status = TokenizeSettings.NORMAL_SETTINGS_INT
+        elif ((status == TokenizeSettings.NORMAL) and (c in interupts)):
+            tokens.append(curr)
+            tokens.append(c)
+            curr = ''
+        elif (status == TokenizeSettings.NORMAL and c not in ['"', '[']) or status == TokenizeSettings.NORMAL_SETTINGS_INT:
+            curr += c
+        else:
+            print(f'ERROR: status: {status}')
+            assert False
+
+    if(curr != ''):
+        tokens.append(curr)
+    
+    tokens = [tok for tok in tokens if (len(tok) != 0)]
+    return tokens
 
 def tokenizeFromJson(code: list):
     tokens = []
@@ -612,7 +645,7 @@ def tokenizeFromJson(code: list):
     return tokens
 
 def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.UUID] = None):
-    print(str(ruleManager))
+    #print(str(ruleManager))
     tokenStr = '\n\t'.join([str(tok) for tok in inTokens])
     #print(f'tokenized: \n\t{tokenStr}, len: {len(inTokens)}')
     #table = [Column(ruleManager, [State(prod, 0) for prod in ruleManager.productions])]
@@ -649,7 +682,7 @@ def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.U
         for state in col.states:
             #print(f'sate name: {state.production.name}, is completed: {state.isCompleted()}')
             if (state.isCompleted()):
-                print(f'sate name: {state.production.name}, is completed: {state.isCompleted()}!')
+                #print(f'sate name: {state.production.name}, is completed: {state.isCompleted()}!')
                 col.states.extend(complete(table, state))
 
             else:
@@ -662,7 +695,7 @@ def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.U
                     predict(col, state, currentChart)
 
         #post
-        print(f'------{currentChart}, "{bcolors.OKBLUE}{tok}{bcolors.ENDC}": POST------')
+        print(f'------{currentChart}, {bcolors.OKBLUE}{repr(tok)}{bcolors.ENDC}: POST------')
         print('\n'.join(map(str, col.states)))
     
     # Find result

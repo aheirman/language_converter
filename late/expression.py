@@ -36,7 +36,7 @@ class Terminal:
         settings = self.token.settings
         if (settings['regex']):
             self.rule = rule
-            #print(f'Terminal with regex rule: {self.token.tok}')
+            print(f'Terminal with regex rule: {self.token.tok}')
             self.reg = re.compile(self.token.tok)
         else:
             self.rule = rule
@@ -72,14 +72,14 @@ class Noitcudorp:
         self.uuid = uuid
         self.settings = settings
         if not len(tokens) == 1:
-            print(f'len(tokens): {len(tokens)}, tokens: {str([str(tok) for tok in tokens])}')
+            print(f'ERROR: len(tokens): {len(tokens)}, tokens: {str([str(tok) for tok in tokens])}')
             assert False 
         self.tokens = tokens
 
 
     def __str__(self):
-        #tokensStr = ' '.join([str(elem) for elem in self.tokens])
-        return f'Noitcudorp {{ uuid: {self.uuid}, name: {self.name}, tokens: {self.tokens}}}'
+        tokensStr = ' '.join([str(elem) for elem in self.tokens])
+        return f'Noitcudorp {{ uuid: {self.uuid}, name: {self.name}, tokens: {tokensStr}}}'
 
 class Production:
     def process(self, ruleManager):
@@ -87,7 +87,7 @@ class Production:
         #print(f'Production tokens: {[str(t) for t in self.tokens]}')
         noitcudorps = []
         for tok in self.tokens:
-            #print(f'production process name: {self.name}, token: "{tok.tok}"')
+            print(f'production process name: {self.name}, token: "{tok.tok}"')
             
             if containsAndTrue(tok.settings, "regex") or containsAndTrue(tok.settings, "quote"):
                 steps.append(Terminal(tok))
@@ -268,32 +268,33 @@ class Productiongenerator():
             3: compatible with
     """
     @staticmethod
-    def createAllProductions(list: list):
+    def createAllProductions(list: list, name: str = f'generated-{random.randint(0,65536)}'):
         prods = []
         for rule in list:
             prods.extend(Productiongenerator.__createProductions(*rule))
-        manager = RuleManager(f'generated-{random.randint(0,65536)}', prods, [], [])
+        manager = RuleManager(name, prods, [], [], [])
         manager.process(([], []))
         return manager
-"""
-    @staticmethod
-    def createAllProductionsGenUUID(list: list):
-        prods = []
-        for index, rule in enumerate(list):
-            uuids = self.__genUUID(index, rule[3])
-            prods.extend(Productiongenerator.__createProductions(uuids, *rule))
-        return RuleManager(prods, [], [])
-"""
+
+class Merge:
+    def __init__(self, from_id, into_id, steps: list):
+        self.from_id = from_id
+        self.into_id = into_id
+        self.steps   = steps
+
+    def __str__(self):
+        return f'{{Merge: {self.from_id} into {self.into_id} }}'
 
 class RuleManager:
 
     def generateMap(self):
         self.RuleProdMap = dict(zip([prod.stdandard for prod in self.my_productions], [prod.stdandard for prod in self.my_productions]))
 
-    def __init__(self, name, productions: list[Production], noitcudorps: list[Noitcudorp], imports: list[str]):
+    def __init__(self, name, productions: list[Production], noitcudorps: list[Noitcudorp], merges: list[Merge], imports: list[str]):
         self.name        = name
         self.productions = productions
         self.noitcudorps = noitcudorps
+        self.merges      = merges
         self.imports     = imports
         self.__checkForErrors()
 
@@ -317,13 +318,14 @@ class RuleManager:
         uuids = []
         for prod in self.productions:
             if prod.uuid in uuids:
+                print(f'{bcolors.FAIL}ERROR: trying to add production with uuid: "{prod.uuid}" is already in uuids: {uuids}{bcolors.ENDC}')
                 assert False
             else:
                 uuids.append(prod.uuid)
 
     def __str__(self):
         #return '\n'.join([str(elem) for elem in (self.my_productions + self.noitcudorps + ['--------', 'IMPORTED', '--------'] + self.imported_productions + self.imported_noitcudorp )])
-        return '\n'.join([str(elem) for elem in (self.productions + self.noitcudorps)])
+        return 'RuleManager:\n' + '\t\n'.join([str(elem) for elem in (self.productions + self.merges + self.noitcudorps)])
 
     def getProduction(self, uuid):
         for prod in self.productions:
@@ -357,4 +359,3 @@ class RuleManager:
 
     def getEquivalentProduction(self, standardese) -> Production:
         pass
-

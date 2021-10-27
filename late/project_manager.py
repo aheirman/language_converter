@@ -1,4 +1,4 @@
-from .parser import * 
+from .expression import * 
 
 
 class ProjectManager:
@@ -45,11 +45,14 @@ class ProjectManager:
         if index in self.permanent_marks:
             return
         if index in self.temporary_marks:
-            print(f'ERROR: this project has dependency circles (not a directed acyclic graph)')
+            print(f'{bcolors.FAIL}ERROR: this project has dependency circles (not a directed acyclic graph){bcolors.ENDC}')
             assert False
         
         self.temporary_marks.add(index)
         for import_name in self.rManagers[index].imports:
+            if import_name not in self.name_to_index:
+                print(f'{bcolors.FAIL}ERROR: unknown import "{import_name}" is required!{bcolors.ENDC}')
+                assert False
             self.__visit(self.name_to_index[import_name])
 
         self.temporary_marks.remove(index)
