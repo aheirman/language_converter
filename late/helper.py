@@ -24,6 +24,9 @@ class bcolors:
 def containsAndTrue(dict, key):
     return (key in dict) and (dict[key] == True)
 
+def containsNotNoneAndPresent(dict, key):
+    return dict[key] if dict != None and (key in dict) else None
+
 def containsAndTrueAny(dict, keys):
     for key in keys:
         if (key in dict) and (dict[key] == True):

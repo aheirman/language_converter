@@ -178,7 +178,7 @@ class State:
         if pos < self.production.len():
             return self.production.steps[pos].name()
         else:
-            assert None
+            assert False
 
     def fullStr(self):
         def toStr(inVal):
@@ -378,7 +378,7 @@ class State:
     def __unwarp(self, rManagerA: RuleManager, rManagerB: RuleManager, method: UnwrapMethod, recursion_index = 0, graph: Optional[str] = None) -> str:
         assert self.isCompleted()
         tab_string = '\t' * recursion_index
-        print(f'-------BEGIN unwrap OF {self.name()}-------')
+        #print(f'-------BEGIN unwrap OF {self.name()}-------')
         #print(str(rManagerB))
         #print(self.fullStr())
 
@@ -538,15 +538,22 @@ class Column():
     def predict(self, productionName: str, currentChart):
         new = []
         #print(f'predict: productionName: {productionName}, currentChart {currentChart}')
+        FoundMatch = False
         for prod in self.ruleManager.productions:
-            #print(f'predict: prod.name {prod.name}')
+            #print(f'predict: prod.name "{prod.name}"')
             if (prod.name == productionName):
                 #print('matching name')
+                FoundMatch = True
                 if (not self.containsState(productionName, 0)):
                     #print(f'predicted: {prod.name}')
                     new.append(State(prod, currentChart))
-        #print(f'predict: {new}')
+                
+        if not FoundMatch:
+            print(f'{bcolors.FAIL}ERROR: production with name "{productionName}" not found!{bcolors.ENDC}')
+            assert False
+        #print(f'predict new state: {str([str(state) for state in new])}')
         return new
+        
     
     def append(self, state):
         self.states.append(state)
@@ -589,6 +596,11 @@ def tokenize(input: str, interupts = ['+', '-', '*', ':', '/', '(', ')', '\n', '
             tokens.append(curr)
             status = TokenizeSettings.NORMAL
             curr = '{'
+        elif status == TokenizeSettings.NORMAL_SETTINGS_INT and c == '}':
+            tokens.append(curr)
+            tokens.append('}')
+            status = TokenizeSettings.NORMAL
+            curr = ''
         elif (status in [TokenizeSettings.NORMAL, TokenizeSettings.NORMAL_SETTINGS_INT] and c in [' ', '\n']): 
             tokens.append(curr)
             if c == '\n':
@@ -645,7 +657,7 @@ def tokenizeFromJson(code: list):
     return tokens
 
 def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.UUID] = None):
-    #print(str(ruleManager))
+    print(str(ruleManager))
     tokenStr = '\n\t'.join([str(tok) for tok in inTokens])
     #print(f'tokenized: \n\t{tokenStr}, len: {len(inTokens)}')
     #table = [Column(ruleManager, [State(prod, 0) for prod in ruleManager.productions])]
@@ -667,9 +679,10 @@ def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.U
 
     def predict(col, state, currentChart):
         #Prediction
-        #print('Predicting')
-                    
+        #assert not state.nextIsTerminal()
         name = state.getNextName()
+        #print(f'Predicting {currentChart}, adding: {name}')
+        
         col.extend(col.predict(name, currentChart))
     
     for currentChart, col in enumerate(table):
@@ -680,14 +693,14 @@ def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.U
 
         #real work
         for state in col.states:
-            #print(f'sate name: {state.production.name}, is completed: {state.isCompleted()}')
+            #print(f'sate name: {state.production.name}, checking completion')
             if (state.isCompleted()):
                 #print(f'sate name: {state.production.name}, is completed: {state.isCompleted()}!')
                 col.states.extend(complete(table, state))
 
-            else:
-                if (tok != None and state.nextIsTerminal()):
-                    #print('Scanning')
+            elif tok != None:
+                if state.nextIsTerminal():
+                    print(f'{state.production.name} is scanning')
                     newStates = state.MatchThenAdvanceStateCopies(tok)
                     table[currentChart+1].extend(newStates)
                 else:

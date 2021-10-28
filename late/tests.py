@@ -30,6 +30,7 @@ class CheckUnit:
         matched = match(ruleManagerA, tokenize(input), begin)
         print(f'input: {input}, matched: {matched}, expected output: {output}')
         if matched == None:
+            print(f'{bcolors.FAIL}ERROR: MATCH WAS NONE!{bcolors.ENDC}')
             self.assertEqual(output, None)
         else:
             self.assertNotEqual(output, None)
@@ -485,7 +486,7 @@ class ESRAP(unittest.TestCase, CheckUnit):
 
 
 class READ2(unittest.TestCase, CheckUnit):
-    #@unittest.skip("read2")
+    @unittest.skip("read2")
     def test_read2_production(self):
         input3 = """{"id": "calc"}
 production →  name separator{"pad": false} "|"{"opt": true} to_match
@@ -507,10 +508,10 @@ term → [0-9] | [0-9A-F]
 """
         inputs = [input1, input2, input3]
         for input in inputs:
-            ruleManagerA = parseIR(input.splitlines())
-            ruleManagerB = parseIR2(input)
-            print(f'parseIR: {str(ruleManagerA)}')
-            print(f'parseIR2: {str(ruleManagerB)}')
+            ruleManagerA = parseIR_handwritten(input.splitlines())
+            ruleManagerB = parseIR(input)
+            print(f'parseIR_handwritten: {str(ruleManagerA)}')
+            print(f'parseIR: {str(ruleManagerB)}')
             assert str(ruleManagerA) == str(ruleManagerB)
 
     #@unittest.skip("read2")
@@ -526,14 +527,14 @@ new_name → [a-zA-A][a-zA-A0-9_-]*
 """
         inputs = [input1] #[input1, input2]
         for input in inputs:
-            ruleManagerA = parseIR(input.splitlines())
-            ruleManagerB = parseIR2(input)
-            print(f'parseIR: {str(ruleManagerA)}')
-            print(f'parseIR2: {str(ruleManagerB)}')
+            ruleManagerA = parseIR_handwritten(input.splitlines())
+            ruleManagerB = parseIR(input)
+            print(f'parseIR_handwritten: {str(ruleManagerA)}')
+            print(f'parseIR: {str(ruleManagerB)}')
             assert str(ruleManagerA) == str(ruleManagerB)
 
 class READ(unittest.TestCase, CheckUnit):
-    #@unittest.skip("read")
+    @unittest.skip("read")
     def test_read(self):
         ruleManagerA = parseIR("""
 production →  name separator{"pad": false} "|"{"opt": true} to_match
@@ -543,7 +544,7 @@ settings → "{" token{"alo": true, "opt": true} "}"
 name → [a-zA-Z0-9]+
 token → [a-zA-Z0-9!<>#$\\\\"\\\\'\\\\+\\\\-\\\\*_\\\\.!:]+
 separator → ":"
-""".splitlines())
+""")
         inputs = [
             "abc:\"foo\"",
             "abc:\"foo\" | glue",
@@ -557,16 +558,17 @@ separator → ":"
         projectManager.processProductions()
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
+    #@unittest.skip("read")
     def test_read_reorder(self):
         ruleManagerA = parseIR("""{"id": "a"}
 calculation → term "," term "," term
 term → [0-9]
-""".splitlines())
+""")
         
         ruleManagerB = parseIR("""{"id": "b"}
 calculation{"compatible": "a-1-0"} → term{"id": 2} "," term{"id": 1} "," term{"id": 0}
 term{"compatible": "a-2-0"} → [0-9]{"id": 0}
-""".splitlines())
+""")
 
         inputs = ["1,2,3"]
         outputs = ['3,2,1']
@@ -582,16 +584,17 @@ term{"compatible": "a-2-0"} → [0-9]{"id": 0}
             with self.subTest(input=input):
                 self.check(ruleManagerB, ruleManagerA, input, output)
 
+    #@unittest.skip("read")
     def test_read_reorder2(self):
         ruleManagerA = parseIR("""{"id": "a"}
 calculation → term "," term "," term
 term → [0-9]
-""".splitlines())
+""")
         
         ruleManagerB = parseIR("""{"id": "b"}
 calculation{"compatible": "a-1-0"} → term{"id": 2} "," term{"id": 1} "," "strange"{"pad": true} "place"{"pad": true} term{"id": 0}
 term{"compatible": "a-2-0"} → [0-9]{"id": 0}
-""".splitlines())
+""")
 
         inputs = ["1,2,3"]
         outputs = ['3,2, strange  place 1']
@@ -612,12 +615,12 @@ term{"compatible": "a-2-0"} → [0-9]{"id": 0}
         ruleManagerA = parseIR("""{"id": "a"}
 term{"compatible": "b-1-0"} → new_name{"id": 0, "convert_only": true} [ab]+{"id": 1, "pad": true}
 new_name ⇇ [a-zA-A][a-zA-A0-9_-]*
-""".splitlines())
+""")
 
         ruleManagerB = parseIR("""{"id": "b"}
 term → new_name [ab]+{"pad": true}
 new_name → [a-zA-A][a-zA-A0-9_-]*
-""".splitlines())
+""")
 
         inputs = ["ababba"]
         outputs = ["[a-zA-A][a-zA-A0-9_-]* ababba "]
@@ -631,12 +634,12 @@ new_name → [a-zA-A][a-zA-A0-9_-]*
         ruleManagerA = parseIR("""{"id": "a"}
 term{"compatible": "b-1-0"} → new_name{"id": 0, "convert_only": true} [ab]+{"id": 1, "pad": true} new_name{"id": 2, "convert_only": true}
 new_name ⇇ [a-zA-A][a-zA-A0-9_-]*
-""".splitlines())
+""")
 
         ruleManagerB = parseIR("""{"id": "b"}
 term → new_name [ab]+{"pad": true} new_name
 new_name → [a-zA-A][a-zA-A0-9_-]*
-""".splitlines())
+""")
 
         inputs = ["ababba"]
         outputs = ["[a-zA-A][a-zA-A0-9_-]* ababba [a-zA-A][a-zA-A0-9_-]*"]
@@ -648,7 +651,7 @@ new_name → [a-zA-A][a-zA-A0-9_-]*
 
     @unittest.skip("reader2")
     def test_modify_upper(self):
-        ruleManagerA = parseIR2("""{"id": "a", "imports": ["b"] }
+        ruleManagerA = parseIR("""{"id": "a", "imports": ["b"] }
 number → "(" [0-9] "," [0-9] ")"
 number:"a-1-0" ⇈ numbers:"b-1-0" {
     append_into 0, 0;
@@ -659,7 +662,7 @@ number:"a-1-0" ⇈ numbers:"b-1-0" {
         ruleManagerB = parseIR("""{"id": "b"}
 numbers → number{"alo": true}
 number  → [0-9]{"pad": true}
-""".splitlines())
+""")
 
         #inputs = ["0", "1 2", "2 3 (4,5)"]
         #outputs = [" 0 ", " 1  2 ", " 2  3  4  5 "]
@@ -690,7 +693,7 @@ class INTERPRET(unittest.TestCase, CheckUnit):
         ruleManagerA = parseIR("""{"id": "a"}
 calculation → term "," term "," term
 term → [0-9]
-""".splitlines())
+""")
     
     projectManager = ProjectManager([ruleManagerA, ruleManagerB])
     projectManager.processProductions()
@@ -707,11 +710,11 @@ class PROJECT(unittest.TestCase, CheckUnit):
     def test_import(self):
         ruleManagerA = parseIR("""{"id": "a", "imports": ["b"]}
 start → number
-""".splitlines())
+""")
 
         ruleManagerB = parseIR("""{"id": "b"}
 number → [0-9]
-""".splitlines())
+""")
 
         inputs = [
             "0",
@@ -727,11 +730,11 @@ number → [0-9]
         ruleManagerA = parseIR("""{"id": "a", "imports": ["b"]}
 start → number
 number → [a-z]
-""".splitlines())
+""")
 
         ruleManagerB = parseIR("""{"id": "b"}
 number → [0-9]
-""".splitlines())
+""")
 
         inputs = [
             "0",
@@ -750,12 +753,12 @@ number → [0-9]
         #TODO: start production should be in the ir!
         ruleManagerA = parseIR("""{"id": "a", "imports": ["b"]}
 number → [a-z]
-""".splitlines())
+""")
 
         ruleManagerB = parseIR("""{"id": "b"}
 start → number
 number → [0-9]
-""".splitlines())
+""")
 
         inputs = [
             "0",
@@ -768,13 +771,59 @@ number → [0-9]
         projectManager.processProductions()
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs, "b-1-0")
 
-    @unittest.skip("bracket_transform")
+    #@unittest.skip("bracket_transform")
     def test_bracket_transform(self):
+        ruleManagerA = parseIR("""{"id": "ir"}
+start → starts
+starts → glue1 | glue2 | abc1 | abc2 | abc4
+glue1 → ( "glue1" "glue2" )
+glue2 → ( "glue3" "glue4" ){"pad":true}
+abc1 → ( "foo1" | "boo1" )
+abc2 → ( "foo2" | "boo2" ){"pad":true}
+abc4 → ( "foo4" | "boo4" ){"pad":true} | ( "Myfoo4" | "Myboo4" ){"pad":true}
+""")
+#
+        inputs = [
+            "glue1 glue2",
+            "glue3 glue4",
+            "boo1",
+            "foo1",
+            "boo1",
+            "foo2",
+            "boo2",
+            "foo4",
+            "boo4",
+            "Myfoo4",
+            "Myboo4",
+            ]
+
+        outputs = [
+            "glue1glue2",
+            " glue3glue4 ",
+            "boo1",
+            "foo1",
+            "boo1",
+            " foo2 ",
+            " boo2 ",
+            " foo4 ",
+            " boo4 ",
+            " Myfoo4 ",
+            " Myboo4 ",
+            ]
+
+        projectManager = ProjectManager([ruleManagerA, ruleManagerA])
+        projectManager.processProductions()
+
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, outputs, "ir-1-0")
+
+
+    @unittest.skip("bracket_transform")
+    def test_bracket_transform_manual(self):
         #TODO: Implement the modification of a production above you...
         ruleManagerA = parseIR("""{"id": "mid", "imports": ["ir"]}
 sub{"compatible": "b-1-0"} → "(" to_match ")" settings{"opt": true}
 new_name ⇇ [a-zA-A0-9_-]
-""".splitlines())
+""")
 
         ruleManagerB = parseIR("""{"id": "ir"}
 productions → production{"alo": true}
@@ -785,14 +834,13 @@ settings → "{" token{"alo": true, "opt": true} "}"
 name → [a-zA-Z0-9]+
 token → [a-zA-Z0-9!<>#$\\\\"\\\\'\\\\+\\\\-\\\\*_\\\\.!:]+
 separator → ":"
-""".splitlines())
+""")
 
         inputs = [
             "abc:\"foo\"",
             "abc:\"foo\" | glue",
             "abc:\"foo\"{'pad':true}",
             "abc:(\"foo\" | glue)",
-            "abc:(\"foo\" | glue){'pad':true}",
             "abc:(\"foo\" | glue){'pad':true}",
             "abc:(\"foo\" | glue){'pad':true} | (\"foo\" | glue){'pad':true}",
             ]
@@ -803,7 +851,6 @@ separator → ":"
 """abc:[a-zA-A][a-zA-A0-9_-]*
 [a-zA-A][a-zA-A0-9_-]*: "foo" | glue
 """,
-            "abc:(\"foo\" | glue){'pad':true}",
             "abc:(\"foo\" | glue){'pad':true}",
             "abc:(\"foo\" | glue){'pad':true} | (\"foo\" | glue){'pad':true}",
         ]

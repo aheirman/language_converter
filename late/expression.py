@@ -87,7 +87,7 @@ class Production:
         #print(f'Production tokens: {[str(t) for t in self.tokens]}')
         noitcudorps = []
         for tok in self.tokens:
-            print(f'production process name: {self.name}, token: "{tok.tok}"')
+            #print(f'production process name: {self.name}, token: "{tok.tok}", {tok.settings}')
             
             if containsAndTrue(tok.settings, "regex") or containsAndTrue(tok.settings, "quote"):
                 steps.append(Terminal(tok))
