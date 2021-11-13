@@ -81,20 +81,52 @@ class Noitcudorp:
         tokensStr = ' '.join([str(elem) for elem in self.tokens])
         return f'Noitcudorp {{ uuid: {self.uuid}, name: {self.name}, tokens: {tokensStr}}}'
 
+def is_trivial_step(step):
+    return isinstance(step, Terminal) and not step.rule.settings['regex'] and not containsAndTrue(step.rule.settings, 'opt') and not containsAndTrue(step.rule.settings, 'alo')
+
+def is_tok_trivial(is_terminal, rule_settings):
+    return is_terminal and not (rule_settings['regex'] or containsAndTrue(rule_settings, 'opt') or containsAndTrue(rule_settings, 'opt'))
+
 class Production:
     def process(self, ruleManager):
-        steps = []
+        input_steps = []
         #print(f'Production tokens: {[str(t) for t in self.tokens]}')
         noitcudorps = []
+        input_to_compat_index = {}
+        contains_id = None
+
+        def check(is_trivial, _settings):
+            nonlocal contains_id
+            if not is_trivial:
+                print(f'nontrivial & pre: _contains_id: {contains_id}, _settings: {_settings}')
+                if contains_id == None:
+                    contains_id = "id" in _settings
+                else:
+                    if contains_id != ("id" in _settings):
+                        error_txt = "ERROR: if any non trivial step in a production has an ID all of them need one!"
+                        print(f'{bcolors.FAIL}{error_txt}{bcolors.ENDC}')
+                        raise RuntimeError(error_txt)
+
+
+        input_index  = 0
+        compat_index = 0
         for tok in self.tokens:
-            #print(f'production process name: {self.name}, token: "{tok.tok}", {tok.settings}')
-            
-            if containsAndTrue(tok.settings, "regex") or containsAndTrue(tok.settings, "quote"):
-                steps.append(Terminal(tok))
+            print(f'production process name: {self.name}, token: "{tok.tok}", {tok.settings}')
+            is_terminal = containsAndTrue(tok.settings, "regex") or containsAndTrue(tok.settings, "quote")
+            trivial = is_tok_trivial(is_terminal, tok.settings)
+            check(trivial, tok.settings)
+
+            if is_terminal:
+                input_steps.append(Terminal(tok))
+                if not trivial:
+                    input_index  += 1
             elif not containsAndTrue(tok.settings, "convert_only"):
                 exists = ruleManager.productionWithNameExists(tok.tok)
                 if exists:
-                    steps.append(NonTerminal(tok))
+                    input_steps.append(NonTerminal(tok))
+                    input_to_compat_index[input_index] = compat_index
+                    input_index  += 1
+                    compat_index += 1
                 else:
                     print(f'{bcolors.FAIL}Production with name "{tok.tok}" missing!{bcolors.ENDC}')
                     assert False
@@ -102,12 +134,15 @@ class Production:
                 exists = ruleManager.noitcudorpWithNameExists(tok.tok)
                 if exists:
                     noitcudorps.append(NonTerminal(tok))
+                    compat_index += 1
                 else:
                     print(f'{bcolors.FAIL}Noitcudorp with name "{tok.tok}" missing!{bcolors.ENDC}')
                     assert False
 
         self.noitcudorps = noitcudorps   
-        self.steps = steps
+        self.input_steps = input_steps
+        self.input_to_compat_index = input_to_compat_index
+        #self.output_steps = 
     
     def __init__(self, uuid, name: str, tokens: list[Token], uuid_compat = None):
         self.name = name
@@ -120,7 +155,7 @@ class Production:
         noitcudorpsStr = '\n\t\t' + '\n\t\t'.join([str(elem) for elem in self.noitcudorps])
         if hasattr(self, 'steps'):
             #tokensStr = ' '.join([str(elem) for elem in self.tokens])
-            stepStr   = '\n\t' + '\n\t'.join([str(elem) for elem in self.steps])
+            stepStr   = '\n\t' + '\n\t'.join([str(elem) for elem in self.input_steps])
             #return f'Production {{ name: {self.name}  tokens: [ {tokensStr} ], {stepStr} }}'
             uuidCompatStr = f', uuid_compat: {self.uuid_compat}' if self.uuid_compat != None else ''
             return f'Production {{ uuid: {self.uuid}, name: {self.name}, {stepStr}{uuidCompatStr}, \n\tnoitcudorps:{noitcudorpsStr}}}'
@@ -131,7 +166,7 @@ class Production:
             return f'Production {{ name: {self.name}, \n\t{tokensStr}, \n\tnoitcudorps:{noitcudorpsStr}}}'
 
     def len(self):
-        return len(self.steps)
+        return len(self.input_steps)
 
 class TokenizeSettings(Enum):
     PRE = 0

@@ -610,6 +610,15 @@ term{"compatible": "a-2-0"} → [0-9]{"id": 0}
             with self.subTest(input=input):
                 self.check(ruleManagerB, ruleManagerA, input, output)
 
+    def test_read_id_requirements(self):
+        ruleManagerA = parseIR("""{"id": "a"}
+term → [ab]{"id": 0} [abc]
+""")
+        
+        projectManager = ProjectManager([ruleManagerA, ruleManagerA])
+        with self.assertRaises(RuntimeError):
+            projectManager.processProductions()
+
     #@unittest.skip("noitcudorp")
     def test_read_noitcudorp(self):
         ruleManagerA = parseIR("""{"id": "a"}
@@ -648,6 +657,21 @@ new_name → [a-zA-A][a-zA-A0-9_-]*
         projectManager.processProductions()
         
         self.runSubtestsRegex(ruleManagerA, ruleManagerB, inputs, outputs)
+
+    #@unittest.skip("noitcudorp")
+    def test_read_multiline_productions(self):
+        ruleManagerA = parseIR("""{"id": "a"}
+term → new_name{"id": 0, "convert_only": true, "pad": true} [ab]+{"id": 1, "pad": true} new_name{"id": 2, "convert_only": true, "pad": true}
+new_name ⇇ [a-zA-A][a-zA-A0-9_-]*
+""")
+
+        inputs = ["ababba"]
+        outputs = ["[a-zA-A][a-zA-A0-9_-]* ababba [a-zA-A][a-zA-A0-9_-]*"]
+        
+        projectManager = ProjectManager([ruleManagerA, ruleManagerA])
+        projectManager.processProductions()
+        
+        self.runSubtestsRegex(ruleManagerA, ruleManagerA, inputs, outputs)
 
     @unittest.skip("reader2")
     def test_modify_upper(self):

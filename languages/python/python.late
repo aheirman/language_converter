@@ -1,0 +1,38 @@
+statements  → statement{"alo": true}
+statement   → compound_stmt | simple_stmt
+
+#Broken!
+simple_stmt → small_stmt
+small_stmt  →
+    | assignment
+    | star_expressions 
+    | return_stmt
+    | import_stmt
+    | raise_stmt
+    | 'pass' 
+    | del_stmt
+    | yield_stmt
+    | assert_stmt
+    | 'break' 
+    | 'continue' 
+    | global_stmt
+    | nonlocal_stmt
+compound_stmt →
+    | function_def
+    | if_stmt
+    | class_def
+    | with_stmt
+    | for_stmt
+    | try_stmt
+    | while_stmt
+
+
+
+
+
+
+
+
+
+
+

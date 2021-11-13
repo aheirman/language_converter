@@ -172,7 +172,7 @@ class Parser():
             #print(f'{type(prod)}: {}')
 
         imports = [] if page_settings == None or (not 'imports' in page_settings) else page_settings['imports']
-        print(f'HTHHHH: {imports}')
+        print(f'imports: {imports}')
         name = f'generated-{random.randint(0,65536)}' if page_settings == None or (not 'id' in page_settings) else page_settings['id']
         return RuleManager(name, self.productions, self.noitcudorps, self.merges, imports)
 

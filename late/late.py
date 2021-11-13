@@ -38,7 +38,7 @@ class State:
         retStates = []
         
         myCurrentPos = self.position
-        mySettings = self.production.steps[myCurrentPos].token.settings
+        mySettings = self.production.input_steps[myCurrentPos].token.settings
 
         if containsAndTrue(mySettings, 'alo'):
                 newState = copy.deepcopy(self)
@@ -46,8 +46,8 @@ class State:
                 retStates.append(newState)
 
         pos = myCurrentPos + 1
-        while not pos == len(self.production.steps):
-            set = self.production.steps[pos].token.settings
+        while not pos == len(self.production.input_steps):
+            set = self.production.input_steps[pos].token.settings
             if containsAndTrue(set, 'opt'):
                 newState = copy.deepcopy(self)
                 newState.position += 1 #Passed my state
@@ -65,11 +65,11 @@ class State:
         retStates = []
         
         myCurrentPos = self.position
-        mySettings = self.production.steps[myCurrentPos].token.settings
+        mySettings = self.production.input_steps[myCurrentPos].token.settings
         
         pos = myCurrentPos # NO plus 1
-        while not pos == len(self.production.steps):
-            set = self.production.steps[pos].token.settings
+        while not pos == len(self.production.input_steps):
+            set = self.production.input_steps[pos].token.settings
             if containsAndTrue(set, 'opt'):
                 newState = copy.deepcopy(self)
                 newState.position += 1 #Passed my state
@@ -82,12 +82,12 @@ class State:
 
     def __str__(self):
         str = f'{self.production.name.ljust(15)} → {{'
-        for index, step in enumerate(self.production.steps):
+        for index, step in enumerate(self.production.input_steps):
             if (index == self.position):
                 str += ' ȣ '
             
             str += step.name() + ' '
-        if (len(self.production.steps) == self.position):
+        if (len(self.production.input_steps) == self.position):
             str += ' ȣ '
 
         str += '},'
@@ -100,8 +100,8 @@ class State:
 
     def nextIsTerminal(self):
         #print(f'name: {self.name()}, pos: {self.position}, Terminal: {term}')
-        if self.position < len(self.production.steps):
-            if isinstance(self.production.steps[self.position], Terminal):
+        if self.position < len(self.production.input_steps):
+            if isinstance(self.production.input_steps[self.position], Terminal):
                 return True
         return False
 
@@ -110,14 +110,14 @@ class State:
         assert self.containsNextTerminal()
         
         for pos in self.positions:
-            if self.production.steps[pos].match(input):
+            if self.production.input_steps[pos].match(input):
                 return True
 
         return False
      """
 
     def __setValue2(self, val):
-        settings = self.production.steps[self.position].token.settings
+        settings = self.production.input_steps[self.position].token.settings
         if containsAndTrue(settings, 'alo'):
             self.values.append([val])
         else:
@@ -159,7 +159,7 @@ class State:
         #print(f'MatchThenAdvanceStateCopies index: pos: {pos}, tok: {tok}')
         if pos < self.production.len():
             #print(f'MatchThenAdvanceStateCopies Match?')
-            TernOrNonTerm = self.production.steps[pos]
+            TernOrNonTerm = self.production.input_steps[pos]
             if isinstance(TernOrNonTerm, Terminal):
                 if TernOrNonTerm.match(tok):
                     #print(f'MatchThenAdvanceStateCopies Matched')
@@ -176,7 +176,7 @@ class State:
     def getNextName(self) -> str:
         pos = self.position
         if pos < self.production.len():
-            return self.production.steps[pos].name()
+            return self.production.input_steps[pos].name()
         else:
             assert False
 
@@ -222,7 +222,7 @@ class State:
         val_index_b_TO_val_index_a = {}
         if compatibility == Compatibility.IMPLICIT_EXPORT:
             val_indexA = 0
-            for prodA_step_index, step in enumerate(self.production.steps):
+            for prodA_step_index, step in enumerate(self.production.input_steps):
                 settings = step.token.settings
                 if State.__isStored(step, settings):
                     if not 'id' in step.token.settings:
@@ -234,7 +234,7 @@ class State:
             #print(f'val_index_b_TO_val_index_a: {val_index_b_TO_val_index_a}')
 
         val_index_b = 0
-        for prodB_step_index, step in enumerate(prodB.steps):
+        for prodB_step_index, step in enumerate(prodB.input_steps):
             settings = step.token.settings
             if State.__isStored(step, settings):
                 match compatibility:
@@ -290,7 +290,7 @@ class State:
         if name == None:
             name = uuid.uuid4().hex
 
-        #print(f'self.production.steps[0]: {self.production.steps[0]}')
+        #print(f'self.production.input_steps[0]: {self.production.input_steps[0]}')
 
         def present(index):
             print(f'self.values: {self.values}, index: {index}')
@@ -300,7 +300,7 @@ class State:
             escaped = html.escape(step.name())
             return f'<TD PORT="f{index}" BGCOLOR="{"white" if present(index) else "grey"}">{escaped}</TD>'
         
-        cols = [infoToCol(index, step) for index, step in enumerate(self.production.steps)]
+        cols = [infoToCol(index, step) for index, step in enumerate(self.production.input_steps)]
         code = ''.join(cols)
         graph.node(name, f'''<
 <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
@@ -411,27 +411,33 @@ class State:
                 
 
 
-        stepsA = self.production.steps
-        stepsB = prodB.steps
+        stepsA = self.production.input_steps
+        stepsB = prodB.input_steps
 
         indexToIndices = self.__genIndexToIndices(prodB, compatibility)
         #print(f'{tab_string}indexToIndices: {indexToIndices}')
 
 
-        strings = [None]*(len(stepsB))# + len(self.production.noitcudorps))
+        strings = [None]*(len(stepsB) + len(prodB.noitcudorps))
 
-        # Set strings
-        for i, step in enumerate(prodB.steps):
-            if (isinstance(step, Terminal) and not step.rule.settings['regex'] and not containsAndTrue(step.rule.settings, 'opt') and not containsAndTrue(step.rule.settings, 'alo')):
+        # Set trivial(strings)
+        for i, step in enumerate(stepsB):
+            if (is_trivial_step(step)):
                 string = step.rule.tok
                 settings = step.rule.settings
                 if containsAndTrue(settings, 'pad'):
                     string = ' ' + string + ' '
+                
+                if containsAndTrue(settings, 'id'):
+                    index = step.token.settings["id"]
+                else:
+                    index = i
+                
                 match method:
                     case UnwrapMethod.ESRAP:
-                        strings[i] = string
+                        strings[index] = string
                     case UnwrapMethod.DOT:
-                        strings[i] = State.__createNode(string, settings, graph)
+                        strings[index] = State.__createNode(string, settings, graph)
                 
         # Set (Non)Terminals
         selfCountExludingConst = 0
@@ -491,11 +497,11 @@ class State:
                 #assert False
         
         # Set noitcudorps
-        #print(strings)
+        print(strings)
         for noitcudorpToken in self.production.noitcudorps:
             index = noitcudorpToken.token.settings["id"]
             noitcudorp = rManagerA.getNoitcudorp(noitcudorpToken.token.tok)
-            print(f'index: {index}')
+            print(f'noitcudorpToken index: {index}')
             match method:
                     case UnwrapMethod.ESRAP:
                         generated = noitcudorp.generate()
@@ -657,7 +663,7 @@ def tokenizeFromJson(code: list):
     return tokens
 
 def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.UUID] = None):
-    print(str(ruleManager))
+    #print(str(ruleManager))
     tokenStr = '\n\t'.join([str(tok) for tok in inTokens])
     #print(f'tokenized: \n\t{tokenStr}, len: {len(inTokens)}')
     #table = [Column(ruleManager, [State(prod, 0) for prod in ruleManager.productions])]
@@ -700,7 +706,7 @@ def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.U
 
             elif tok != None:
                 if state.nextIsTerminal():
-                    print(f'{state.production.name} is scanning')
+                    #print(f'{state.production.name} is scanning')
                     newStates = state.MatchThenAdvanceStateCopies(tok)
                     table[currentChart+1].extend(newStates)
                 else:
@@ -708,8 +714,8 @@ def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.U
                     predict(col, state, currentChart)
 
         #post
-        print(f'------{currentChart}, {bcolors.OKBLUE}{repr(tok)}{bcolors.ENDC}: POST------')
-        print('\n'.join(map(str, col.states)))
+        #print(f'------{currentChart}, {bcolors.OKBLUE}{repr(tok)}{bcolors.ENDC}: POST------')
+        #print('\n'.join(map(str, col.states)))
     
     # Find result
     matches = []
@@ -717,7 +723,7 @@ def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.U
         if (status.originPosition == 0 and status.isCompleted() and status.production.uuid in beginRules):
             matches.append(status)
     
-    print(f'MATCHES: {matches}')
+    #print(f'MATCHES: {matches}')
 
     #for index, match in enumerate(matches):
     #    match.getDot(ruleManager, ruleManager, f'index-{index}.gv')
