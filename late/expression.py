@@ -92,13 +92,13 @@ class Production:
         input_steps = []
         #print(f'Production tokens: {[str(t) for t in self.tokens]}')
         noitcudorps = []
-        input_to_compat_index = {}
+        inputstep_to_compat_index = {}
         contains_id = None
 
         def check(is_trivial, _settings):
             nonlocal contains_id
             if not is_trivial:
-                print(f'nontrivial & pre: _contains_id: {contains_id}, _settings: {_settings}')
+                #print(f'nontrivial & pre: _contains_id: {contains_id}, _settings: {_settings}')
                 if contains_id == None:
                     contains_id = "id" in _settings
                 else:
@@ -110,8 +110,8 @@ class Production:
 
         input_index  = 0
         compat_index = 0
-        for tok in self.tokens:
-            print(f'production process name: {self.name}, token: "{tok.tok}", {tok.settings}')
+        for step_index, tok in enumerate(self.tokens):
+            #print(f'production process name: {self.name}, token: "{tok.tok}", {tok.settings}')
             is_terminal = containsAndTrue(tok.settings, "regex") or containsAndTrue(tok.settings, "quote")
             trivial = is_tok_trivial(is_terminal, tok.settings)
             check(trivial, tok.settings)
@@ -124,7 +124,7 @@ class Production:
                 exists = ruleManager.productionWithNameExists(tok.tok)
                 if exists:
                     input_steps.append(NonTerminal(tok))
-                    input_to_compat_index[input_index] = compat_index
+                    inputstep_to_compat_index[step_index] = compat_index
                     input_index  += 1
                     compat_index += 1
                 else:
@@ -141,7 +141,7 @@ class Production:
 
         self.noitcudorps = noitcudorps   
         self.input_steps = input_steps
-        self.input_to_compat_index = input_to_compat_index
+        self.inputstep_to_compat_index = inputstep_to_compat_index
         #self.output_steps = 
     
     def __init__(self, uuid, name: str, tokens: list[Token], uuid_compat = None):

@@ -16,8 +16,8 @@ class UnwrapMethod(Enum):
 
 class Compatibility(Enum):
     EQUAL     = 0,
-    EXPLICIT_EXPORT  = 1,
-    IMPLICIT_EXPORT  = 2
+    OTHER_EXPLICIT  = 1,
+    SELF_EXPORT  = 2
 
 class State:
     def __init__(self, production, originPosition):
@@ -206,66 +206,89 @@ class State:
     """
     NOTE:   This method works for equal, implicit and explicit compatibility 
             prodB may have more non terminals
-            That's why it is on the lhs of the assignment in indexAToIndicesB
+            That's why it is on the lhs of the assignment in valIndexAToStepIndicesB
             This is problematic for implicit compatibility...
             TODO: BROKEN FOR ADDED variables. FUCK
                 split id into external id and internal id
     """
-    def __genIndexToIndices(self, prodB: Production, compatibility: Compatibility):
-        indexAToIndicesB = {}
-        #print(f'__genIndexToIndices: self production:       {self.production}')
-        #print(f'__genIndexToIndices: compatible production: {prodB}')
-        #print(f'__genIndexToIndices: {compatibility}')
+    def __genIndexAToIndicesB(self, prodB: Production, compatibility: Compatibility):
+        valIndexAToStepIndicesB = {}
+        #print(f'__genIndexAToIndicesB: self production:       {self.production}')
+        #print(f'__genIndexAToIndicesB: compatible production: {prodB}')
+        print(f'__genIndexAToIndicesB: {compatibility}')
 
-
+        
+        
         # Loop over A
-        val_index_b_TO_val_index_a = {}
-        if compatibility == Compatibility.IMPLICIT_EXPORT:
-            val_indexA = 0
-            for prodA_step_index, step in enumerate(self.production.input_steps):
+        val_index_implicit_TO_explicit_sep_index = {}
+        val_index_implicit_TO_explicit_val_index = {}
+        if compatibility in [Compatibility.SELF_EXPORT, Compatibility.OTHER_EXPLICIT]:
+            if compatibility == Compatibility.SELF_EXPORT:
+                name        = self.name()
+                input_steps = self.production.input_steps
+                inputstep_to_compat_index = self.production.inputstep_to_compat_index
+            else:
+                name        = prodB.name
+                input_steps = prodB.input_steps
+                inputstep_to_compat_index = prodB.inputstep_to_compat_index
+            print(f'inputstep_to_compat_index: {inputstep_to_compat_index}')
+            explicit_prod_input_val_index = 0
+            for explicit_prod_input_step_index, step in enumerate(input_steps):
+                
                 settings = step.token.settings
                 if State.__isStored(step, settings):
                     if not 'id' in step.token.settings:
-                        print(f'{bcolors.FAIL}Production with name {self.name()} is missing an id setting for step: {prodA_step_index}!{bcolors.ENDC}')
+                        print(f'{bcolors.FAIL}Production with name {name} is missing an id setting for input step: {explicit_prod_input_step_index}!{bcolors.ENDC}')
                         assert False
-                    val_indexB = step.token.settings['id']
-                    val_index_b_TO_val_index_a[val_indexB] = val_indexA
-                    val_indexA += 1
-            #print(f'val_index_b_TO_val_index_a: {val_index_b_TO_val_index_a}')
+                    
+                    val_index_implicit = step.token.settings['id']
+                    print(f'QQQQQQQQ: explicit step index: {explicit_prod_input_step_index}, implicit value index: {val_index_implicit}')
+                    
+                    #compat_index_a = inputstep_to_compat_index[explicit_prod_input_step_index]
+                    if not val_index_implicit in val_index_implicit_TO_explicit_sep_index:
+                        val_index_implicit_TO_explicit_sep_index[val_index_implicit] = []
+                        val_index_implicit_TO_explicit_val_index[val_index_implicit] = []
+
+                    val_index_implicit_TO_explicit_sep_index[val_index_implicit].append(explicit_prod_input_step_index)
+                    val_index_implicit_TO_explicit_val_index[val_index_implicit].append(explicit_prod_input_val_index)
+                    explicit_prod_input_val_index += 1
+
+            print(f'val_index_implicit_TO_explicit_sep_index: {val_index_implicit_TO_explicit_sep_index}')
+
+
+
 
         val_index_b = 0
-        for prodB_step_index, step in enumerate(prodB.input_steps):
-            settings = step.token.settings
-            if State.__isStored(step, settings):
-                match compatibility:
-                    case Compatibility.EXPLICIT_EXPORT:
-                        if not 'id' in step.token.settings:
-                            print(f'{bcolors.FAIL}Production with name {prodB.name} is missing an id setting for step: {prodB_step_index}!{bcolors.ENDC}')
-                            assert False
-                        valAIndex = step.token.settings['id']
-                        print(f'valAIndex; {valAIndex}')
-                        if (not valAIndex in indexAToIndicesB):
-                            indexAToIndicesB[valAIndex] = []
-                            #print(f'empty dictionary array at : {valAIndex}')
-                
-                        indexAToIndicesB[valAIndex].append(prodB_step_index)
-                    case Compatibility.EQUAL:
-                        indexAToIndicesB[val_index_b] = [prodB_step_index]
-                    case Compatibility.IMPLICIT_EXPORT:
-                        #assert False
-                        if not val_index_b in val_index_b_TO_val_index_a:
+        match compatibility:
+            case Compatibility.OTHER_EXPLICIT:
+                #B knows which values needs to be placed where
+                valIndexAToStepIndicesB = val_index_implicit_TO_explicit_sep_index
+            case Compatibility.EQUAL:
+                for prodB_input_step_index, step in enumerate(prodB.input_steps):
+                    settings = step.token.settings
+                    if State.__isStored(step, settings):
+                        valIndexAToStepIndicesB[val_index_b] = [prodB_input_step_index]
+                        val_index_b += 1
+            case Compatibility.SELF_EXPORT:
+                for prodB_input_step_index, step in enumerate(prodB.input_steps):
+                    settings = step.token.settings
+                    if State.__isStored(step, settings):
+
+                        if not val_index_b in val_index_implicit_TO_explicit_val_index:
                             # This case occurs when a new noitcudorp is placed there
                             pass
-                            #print(f'ERROR val_index_b: {val_index_b} no in {val_index_b_TO_val_index_a}')
+                            #print(f'ERROR val_index_b: {val_index_b} no in {val_index_implicit_TO_explicit_sep_index}')
                             #assert False
                         else:
-                            val_index_a = val_index_b_TO_val_index_a[val_index_b]
-                            indexAToIndicesB[val_index_a] = [prodB_step_index]
+                            val_index_a = val_index_implicit_TO_explicit_val_index[val_index_b]
 
-                val_index_b += 1
+                            print(f'val_index_a: {val_index_a}')
+                            assert len(val_index_a) == 1
+                            valIndexAToStepIndicesB[val_index_a[0]] = [prodB_input_step_index]
+                        val_index_b += 1
         
-        #print(f'indexAToIndicesB: {indexAToIndicesB}')
-        return indexAToIndicesB
+        #print(f'valIndexAToStepIndicesB: {valIndexAToStepIndicesB}')
+        return valIndexAToStepIndicesB
 
     def esrap(self, rManagerA: RuleManager, rManagerB: RuleManager) -> str:
         return self.__unwarp(rManagerA, rManagerB, UnwrapMethod.ESRAP)
@@ -380,7 +403,7 @@ class State:
         tab_string = '\t' * recursion_index
         #print(f'-------BEGIN unwrap OF {self.name()}-------')
         #print(str(rManagerB))
-        #print(self.fullStr())
+        #print(f'self.fullStr(): {self.fullStr()}')
 
 
         # Algo:
@@ -395,7 +418,7 @@ class State:
             # conversions are needed
             prodB = rManagerB.getCompatableProduction(self.production.uuid)
             if prodB != None:
-                compatibility = Compatibility.EXPLICIT_EXPORT
+                compatibility = Compatibility.OTHER_EXPLICIT
             else:
                 if self.production.uuid_compat == None:
                     print(f'{bcolors.FAIL}ERROR: PRODUCTION "{self.production.name}:{self.production.uuid}" NEEDS EXPLICIT COMPATIBILITY{bcolors.ENDC}')
@@ -403,7 +426,7 @@ class State:
 
                 prodB = rManagerB.getProduction(self.production.uuid_compat)
                 if prodB != None:
-                    compatibility = Compatibility.IMPLICIT_EXPORT
+                    compatibility = Compatibility.SELF_EXPORT
                 else:
                     print(f'{bcolors.FAIL}ERROR: COMPATIBLE PRODUCTION NOT FOUND{bcolors.ENDC}')
                     assert prodB != None
@@ -414,11 +437,11 @@ class State:
         stepsA = self.production.input_steps
         stepsB = prodB.input_steps
 
-        indexToIndices = self.__genIndexToIndices(prodB, compatibility)
-        #print(f'{tab_string}indexToIndices: {indexToIndices}')
+        valIndexAToStepIndicesB = self.__genIndexAToIndicesB(prodB, compatibility)
+        print(f'{tab_string}valIndexAToStepIndicesB: {valIndexAToStepIndicesB}')
 
 
-        strings = [None]*(len(stepsB) + len(prodB.noitcudorps))
+        strings = [None]*len(stepsB) 
 
         # Set trivial(strings)
         for i, step in enumerate(stepsB):
@@ -440,33 +463,33 @@ class State:
                         strings[index] = State.__createNode(string, settings, graph)
                 
         # Set (Non)Terminals
-        selfCountExludingConst = 0
-
-        #print(f'{tab_string}stepsA: {stepsA}, self.values: {self.values}')
+        print(f'{tab_string}stepsA: {stepsA}, self.values: {self.values}')
         assert len(stepsA) == len(self.values)
+        value_index_a = 0
         for i, step in enumerate(stepsA):
             typeNameStep = type(step).__name__
             val = self.values[i]
             typeNameVal = type(val).__name__
-            #print(f'{tab_string}{bcolors.OKGREEN}status: name {self.name()}, i: {i}, selfCountExludingConst: {selfCountExludingConst}, step: {step}, typeNameStep: {typeNameStep}, val: {val}, typeNameVal: {typeNameVal}{bcolors.ENDC}')
-
+            print(f'{tab_string}{bcolors.OKGREEN}status: name {self.name()}, i: {i}, step: {step}, typeNameStep: {typeNameStep}, val: {val}, typeNameVal: {typeNameVal}{bcolors.ENDC}')
+            
             if not State.__isStored(step, step.token.settings):
+                print(f'{tab_string}Not stored')
                 pass
             elif isinstance(val, State):
-                compatIndices = indexToIndices[selfCountExludingConst]
+                
+                print(f'{tab_string}State')
+                compatIndices = valIndexAToStepIndicesB[value_index_a]
                 
                 for compatIndex in compatIndices:
                     #print(f'compatIndex: {compatIndex}')
                     settings = stepsB[compatIndex].token.settings
                     strings[compatIndex] = State.__handleConversion(rManagerA, rManagerB, settings, val, method, recursion_index+1, graph)
-                selfCountExludingConst += 1
-
+                value_index_a += 1
             #Check key    
-            elif selfCountExludingConst in indexToIndices:
-
-                assert(len(indexToIndices[selfCountExludingConst]) == 1)
-                compatIndex = indexToIndices[selfCountExludingConst][0]
-                selfCountExludingConst += 1
+            elif value_index_a in valIndexAToStepIndicesB:
+                print(f'{tab_string}i in valIndexAToStepIndicesB')
+                assert(len(valIndexAToStepIndicesB[value_index_a]) == 1)
+                compatIndex = valIndexAToStepIndicesB[value_index_a][0]
 
                 if (isinstance(val, Terminal)):
                     isRegex = stepsA[i].rule.settings['regex']
@@ -491,26 +514,27 @@ class State:
                     typeName = type(val).__name__
                     print(f'ERROR: type {typeName}')
                     assert False
-
+                value_index_a += 1
             else:
                 typeName = type(val).__name__
                 #assert False
         
         # Set noitcudorps
-        print(strings)
-        for noitcudorpToken in self.production.noitcudorps:
-            index = noitcudorpToken.token.settings["id"]
-            noitcudorp = rManagerA.getNoitcudorp(noitcudorpToken.token.tok)
-            print(f'noitcudorpToken index: {index}')
-            match method:
-                    case UnwrapMethod.ESRAP:
-                        generated = noitcudorp.generate()
-                        #print(f'generated: {generated}')
-                        strings[index] = generated
-                    case UnwrapMethod.DOT:
-                        txt = str([str(t.tok) for t in noitcudorp.tokens])
-                        #print(f'noitcudorp txt: {txt}')
-                        strings[index] = State.__createNode(txt, None, graph)
+        print(f'__unwrap strings: {strings}')
+        if compatibility != Compatibility.EQUAL:
+            for noitcudorpToken in self.production.noitcudorps:
+                index = noitcudorpToken.token.settings["id"]
+                noitcudorp = rManagerA.getNoitcudorp(noitcudorpToken.token.tok)
+                print(f'noitcudorpToken index: {index}')
+                match method:
+                        case UnwrapMethod.ESRAP:
+                            generated = noitcudorp.generate()
+                            #print(f'generated: {generated}')
+                            strings[index] = generated
+                        case UnwrapMethod.DOT:
+                            txt = str([str(t.tok) for t in noitcudorp.tokens])
+                            #print(f'noitcudorp txt: {txt}')
+                            strings[index] = State.__createNode(txt, None, graph)
 
         #print(f'-------END ESRAP OF {self.name()}-------')
         #print(strings)
@@ -523,7 +547,7 @@ class State:
                 State.__createNodeWithDeps(self, strings, None, graph, self.uuid.hex)
                 ret = self.uuid.hex
                 
-        
+        #print(f'__unwrap ret: {ret}')
         return ret
 
 

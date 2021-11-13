@@ -10,7 +10,7 @@ class CheckUnit:
     """
     def checkRegex(self, ruleManagerA: RuleManager, ruleManagerB: RuleManager, input: str, outputRegex: str, begin = None):
         matched = match(ruleManagerA, tokenize(input), begin)
-        print(f'input: {input}, matched: {matched}, expected output regex: {outputRegex}')
+        print(f'input: "{input}", matched: "{matched}", expected output regex: "{outputRegex}"')
         if matched == None:
             self.assertEqual(outputRegex, None)
         else:
@@ -28,7 +28,7 @@ class CheckUnit:
     """
     def check(self, ruleManagerA: RuleManager, ruleManagerB: RuleManager, input: str, output: str, begin = None):
         matched = match(ruleManagerA, tokenize(input), begin)
-        print(f'input: {input}, matched: {matched}, expected output: {output}')
+        print(f'input: "{input}", matched: "{matched}", expected output: "{output}"')
         if matched == None:
             print(f'{bcolors.FAIL}ERROR: MATCH WAS NONE!{bcolors.ENDC}')
             self.assertEqual(output, None)
@@ -36,7 +36,7 @@ class CheckUnit:
             self.assertNotEqual(output, None)
             vals = matched.fullStr()
             esr = matched.esrap(ruleManagerA, ruleManagerB)
-            print(f'input: {input}, esr: {esr}, expected output: {output}')
+            print(f'input: "{input}", esr: "{esr}", expected output: "{output}"')
             self.assertEqual(esr, output)
 
     def runSubtests(self, ruleManagerA, ruleManagerB, inputs, outputs, begin = None):
@@ -486,8 +486,10 @@ class ESRAP(unittest.TestCase, CheckUnit):
 
 
 class READ2(unittest.TestCase, CheckUnit):
-    @unittest.skip("read2")
+    
+    @unittest.skip("escapecharacters are handeled differently")
     def test_read2_production(self):
+        #BROKEN BECAUSE escapecharacters are not implemented in the new parser...
         input3 = """{"id": "calc"}
 production →  name separator{"pad": false} "|"{"opt": true} to_match
 to_match → sub | sub "|"{"pad": true} to_match
@@ -534,7 +536,7 @@ new_name → [a-zA-A][a-zA-A0-9_-]*
             assert str(ruleManagerA) == str(ruleManagerB)
 
 class READ(unittest.TestCase, CheckUnit):
-    @unittest.skip("read")
+    #@unittest.skip("read")
     def test_read(self):
         ruleManagerA = parseIR("""
 production →  name separator{"pad": false} "|"{"opt": true} to_match
@@ -659,21 +661,36 @@ new_name → [a-zA-A][a-zA-A0-9_-]*
         self.runSubtestsRegex(ruleManagerA, ruleManagerB, inputs, outputs)
 
     #@unittest.skip("noitcudorp")
-    def test_read_multiline_productions(self):
+    def test_read_noitcudorp3_1(self):
         ruleManagerA = parseIR("""{"id": "a"}
-term → new_name{"id": 0, "convert_only": true, "pad": true} [ab]+{"id": 1, "pad": true} new_name{"id": 2, "convert_only": true, "pad": true}
+term → new_name{"id": 0, "convert_only": true} [ab]+{"id": 1} new_name{"id": 2, "convert_only": true}
 new_name ⇇ [a-zA-A][a-zA-A0-9_-]*
 """)
 
         inputs = ["ababba"]
-        outputs = ["[a-zA-A][a-zA-A0-9_-]* ababba [a-zA-A][a-zA-A0-9_-]*"]
         
         projectManager = ProjectManager([ruleManagerA, ruleManagerA])
         projectManager.processProductions()
-        
-        self.runSubtestsRegex(ruleManagerA, ruleManagerA, inputs, outputs)
+        self.runSubtestsRegex(ruleManagerA, ruleManagerA, inputs, inputs)
 
-    @unittest.skip("reader2")
+    #@unittest.skip("noitcudorp")
+    def test_read_noitcudorp3_2(self):
+        ruleManagerA = parseIR("""{"id": "a"}
+term{"compatible": "b-1-0"} → new_name{"id": 0, "convert_only": true} [ab]+{"id": 1} new_name{"id": 2, "convert_only": true}
+new_name ⇇ [a-zA-A][a-zA-A0-9_-]*
+""")
+        ruleManagerB = parseIR("""{"id": "b"}
+term → new_name [ab]+{"pad": true} new_name
+new_name → [a-zA-A][a-zA-A0-9_-]*
+""")
+        inputs = ["ababba"]
+        outputs = ["[a-zA-A][a-zA-A0-9_-]* ababba [a-zA-A][a-zA-A0-9_-]*"]
+        
+        projectManager = ProjectManager([ruleManagerA, ruleManagerB])
+        projectManager.processProductions()
+        self.runSubtestsRegex(ruleManagerA, ruleManagerB, inputs, outputs)
+
+    @unittest.skip("reader2: merge")
     def test_modify_upper(self):
         ruleManagerA = parseIR("""{"id": "a", "imports": ["b"] }
 number → "(" [0-9] "," [0-9] ")"
