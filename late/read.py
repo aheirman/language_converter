@@ -7,7 +7,7 @@ from .project_manager import *
 
 def __readFile(url: str) -> str:
     with open(url) as f:
-         return f.readlines()
+         return f.read()
 
 def __readFileLines(url: str) -> list[str]:
     with open(url) as f:
@@ -16,10 +16,10 @@ def __readFileLines(url: str) -> list[str]:
 ruleManagerA = Productiongenerator.createAllProductions([
         ('ESC-0-0', 'NL', '"\n"')], 'ESC')
 IRruleManager = parseIR_handwritten("""{"id": "ir", "imports": ["ESC"]}
-page         → settings{"opt": true} NL expression{"alo": true}
+page         → settings{"opt": true} NL{"alo": true, "opt": true} expression{"alo": true}
 expression   → production | noitcudorp | merge
-production   → name settings{"opt": true} "→"{"pad": false} multi_prod NL
-noitcudorp   → name settings{"opt": true} "⇇"{"pad": false} token_regex NL
+production   → name settings{"opt": true} "→"{"pad": false} multi_prod NL{"alo": true}
+noitcudorp   → name settings{"opt": true} "⇇"{"pad": false} token_regex NL{"alo": true}
 merge        → name ":" token_str "⇈" name ":" token_str "{" NL merge_ops{"alo": true, "opt": true} "}" NL
 merge_ops    → merge_append
 merge_append → "append_into" [0-9] "," [0-9] ";" NL{"opt": true}
@@ -29,8 +29,8 @@ bit          → name settings{"opt": true} | token_str settings{"opt": true} | 
 settings     → "{" token{"alo": true, "opt": true} "}"
 name         → [a-zA-Z0-9]+
 token        → [a-zA-Z0-9!<>#$,\\\\"\\\\'\\\\+\\\\-\\\\*_\\\\.\\\\[\\\\]!:→]+
-token_str    → '"[a-zA-Z0-9,\-|(){}→]+"'{"regex": true, "quote": false}
-token_regex  → '([\\\\[[a-zA-Z0-9!<>#$,\\\\"\\\\\\'\\\\-\\\\+\\\\*_\\\\.!:→\\\\\\\\]+\\\\][\\\\+\\\\*]?)+'{"regex": true, "quote": false}
+token_str    → '"[a-zA-Z0-9,\+\-|(){}→\\\\"\\'<>#&%!=\\\\*~]+"'{"regex": true, "quote": false}
+token_regex  → '\\\\[[a-zA-Z0-9!<>#$,\\\\"\\\\\\'\\\\-\\\\+\\\\*_\\\\.!:→\\\\\\\\ /]+\\\\]([\\\\+\\\\*])?'{"regex": true, "quote": false}
 """.splitlines())
     
 projectManager = ProjectManager([ruleManagerA, IRruleManager])
@@ -74,7 +74,9 @@ class Parser():
                         bit_settings['regex'] = False
 
                         if bit.values[1] != None:
-                            bit_settings.update(json.loads(bit.values[1].esrap(IRruleManager, IRruleManager)))
+                            unwrapped = bit.values[1].esrap(IRruleManager, IRruleManager)
+                            print(f'__gen_prod: {unwrapped}')
+                            bit_settings.update(json.loads(unwrapped))
 
                         tokenList.append(Token(bit_txt, bit_settings))
                     case 'ir-10-2':
@@ -103,17 +105,22 @@ class Parser():
             
             id = str(uuid.uuid4()) if real_uuid else self.gen.next()
             comp = containsNotNoneAndPresent(exp_settings, 'compatible')
-            print(f'{RuleType.PRODUCTION}: {id}:{exp_name} sett: {exp_settings} → {str([str(tok) for tok in tokenList])}')
+            #print(f'{RuleType.PRODUCTION}: {id}:{exp_name} sett: {exp_settings} → {str([str(tok) for tok in tokenList])}')
             self.productions.append(Production(id, exp_name, tokenList, comp))
             #---
             multi_prod = multi_prod.values[2] if len(multi_prod.values)>1 else None
 
 
-    def parseIR(self, input):
+    def parseIR(self, input : str):
         tokens = tokenize(input)
         print(f'tokens: {tokens}')
         matched = match(IRruleManager, tokens)
-        print(f'matched: {type(matched)}, {matched.production.uuid}')
+        if matched == None:
+            print(f"{bcolors.FAIL}ERROR: THE LATE SOURCE FILE IS NON COMPLIANT{bcolors.ENDC}")
+            print(f'input: {input}')
+            assert False
+
+        #print(f'matched: {type(matched)}, {matched.production.uuid}')
         assert matched != None
         
         #move data from AST to data structure
@@ -172,12 +179,12 @@ class Parser():
             #print(f'{type(prod)}: {}')
 
         imports = [] if page_settings == None or (not 'imports' in page_settings) else page_settings['imports']
-        print(f'imports: {imports}')
+        #print(f'imports: {imports}')
         name = f'generated-{random.randint(0,65536)}' if page_settings == None or (not 'id' in page_settings) else page_settings['id']
         return RuleManager(name, self.productions, self.noitcudorps, self.merges, imports)
 
 
-def parseIR(input):
+def parseIR(input : str):
     parsy = Parser()
     return parsy.parseIR(input)
 
@@ -215,11 +222,13 @@ def __parseFile(lines: list[str], rManager: Optional[RuleManager] = None):
 
 
 def getMetaIrProductions(url: str) -> list[Production]:
-    ruleManager = parseIR(__readFileLines(url))
+    ruleManager = parseIR(__readFile(url))
+    projectManager = ProjectManager([ruleManager, ruleManager])
+    projectManager.processProductions()
     return ruleManager
     
-def parse(url_grammer2: str, url_grammer: str, tokens: list) -> str:
-    prods = __parseIR(__readFileLines(url_grammer2))
+def parse_file_to_file(url_grammer_src: str, url_grammer_dest: str, tokens: list) -> str:
+    prods = __parseIR(__readFileLines(url_grammer_src))
     rManager = Productions(prods)
     #print(rManager)
     return match(rManager, tokens)

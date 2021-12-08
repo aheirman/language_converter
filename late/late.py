@@ -34,7 +34,7 @@ class State:
             self.position += 1
 
     #NOTE: The position shift of us occurs after this is run
-    def createNewStates(self):
+    def createNewStates(self) -> List[State]:
         retStates = []
         
         myCurrentPos = self.position
@@ -61,7 +61,7 @@ class State:
     """
         create extra states needed for optionals
     """
-    def createInitial(self):
+    def createInitial(self) -> List[State]:
         retStates = []
         
         myCurrentPos = self.position
@@ -215,7 +215,7 @@ class State:
         valIndexAToStepIndicesB = {}
         #print(f'__genIndexAToIndicesB: self production:       {self.production}')
         #print(f'__genIndexAToIndicesB: compatible production: {prodB}')
-        print(f'__genIndexAToIndicesB: {compatibility}')
+        #print(f'__genIndexAToIndicesB: {compatibility}')
 
         
         
@@ -231,7 +231,7 @@ class State:
                 name        = prodB.name
                 input_steps = prodB.input_steps
                 inputstep_to_compat_index = prodB.inputstep_to_compat_index
-            print(f'inputstep_to_compat_index: {inputstep_to_compat_index}')
+            #print(f'inputstep_to_compat_index: {inputstep_to_compat_index}')
             explicit_prod_input_val_index = 0
             for explicit_prod_input_step_index, step in enumerate(input_steps):
                 
@@ -242,7 +242,7 @@ class State:
                         assert False
                     
                     val_index_implicit = step.token.settings['id']
-                    print(f'QQQQQQQQ: explicit step index: {explicit_prod_input_step_index}, implicit value index: {val_index_implicit}')
+                    #print(f'QQQQQQQQ: explicit step index: {explicit_prod_input_step_index}, implicit value index: {val_index_implicit}')
                     
                     #compat_index_a = inputstep_to_compat_index[explicit_prod_input_step_index]
                     if not val_index_implicit in val_index_implicit_TO_explicit_sep_index:
@@ -253,7 +253,7 @@ class State:
                     val_index_implicit_TO_explicit_val_index[val_index_implicit].append(explicit_prod_input_val_index)
                     explicit_prod_input_val_index += 1
 
-            print(f'val_index_implicit_TO_explicit_sep_index: {val_index_implicit_TO_explicit_sep_index}')
+            #print(f'val_index_implicit_TO_explicit_sep_index: {val_index_implicit_TO_explicit_sep_index}')
 
 
 
@@ -282,7 +282,7 @@ class State:
                         else:
                             val_index_a = val_index_implicit_TO_explicit_val_index[val_index_b]
 
-                            print(f'val_index_a: {val_index_a}')
+                            #print(f'val_index_a: {val_index_a}')
                             assert len(val_index_a) == 1
                             valIndexAToStepIndicesB[val_index_a[0]] = [prodB_input_step_index]
                         val_index_b += 1
@@ -316,7 +316,7 @@ class State:
         #print(f'self.production.input_steps[0]: {self.production.input_steps[0]}')
 
         def present(index):
-            print(f'self.values: {self.values}, index: {index}')
+            #print(f'self.values: {self.values}, index: {index}')
             return self.values[index] != None
 
         def infoToCol(index, step):
@@ -438,7 +438,7 @@ class State:
         stepsB = prodB.input_steps
 
         valIndexAToStepIndicesB = self.__genIndexAToIndicesB(prodB, compatibility)
-        print(f'{tab_string}valIndexAToStepIndicesB: {valIndexAToStepIndicesB}')
+        #print(f'{tab_string}valIndexAToStepIndicesB: {valIndexAToStepIndicesB}')
 
 
         strings = [None]*len(stepsB) 
@@ -463,21 +463,21 @@ class State:
                         strings[index] = State.__createNode(string, settings, graph)
                 
         # Set (Non)Terminals
-        print(f'{tab_string}stepsA: {stepsA}, self.values: {self.values}')
+        #print(f'{tab_string}stepsA: {stepsA}, self.values: {self.values}')
         assert len(stepsA) == len(self.values)
         value_index_a = 0
         for i, step in enumerate(stepsA):
             typeNameStep = type(step).__name__
             val = self.values[i]
             typeNameVal = type(val).__name__
-            print(f'{tab_string}{bcolors.OKGREEN}status: name {self.name()}, i: {i}, step: {step}, typeNameStep: {typeNameStep}, val: {val}, typeNameVal: {typeNameVal}{bcolors.ENDC}')
+            #print(f'{tab_string}{bcolors.OKGREEN}status: name {self.name()}, i: {i}, step: {step}, typeNameStep: {typeNameStep}, val: {val}, typeNameVal: {typeNameVal}{bcolors.ENDC}')
             
             if not State.__isStored(step, step.token.settings):
-                print(f'{tab_string}Not stored')
+                #print(f'{tab_string}Not stored')
                 pass
             elif isinstance(val, State):
                 
-                print(f'{tab_string}State')
+                #print(f'{tab_string}State')
                 compatIndices = valIndexAToStepIndicesB[value_index_a]
                 
                 for compatIndex in compatIndices:
@@ -487,7 +487,7 @@ class State:
                 value_index_a += 1
             #Check key    
             elif value_index_a in valIndexAToStepIndicesB:
-                print(f'{tab_string}i in valIndexAToStepIndicesB')
+                #print(f'{tab_string}i in valIndexAToStepIndicesB')
                 assert(len(valIndexAToStepIndicesB[value_index_a]) == 1)
                 compatIndex = valIndexAToStepIndicesB[value_index_a][0]
 
@@ -520,12 +520,12 @@ class State:
                 #assert False
         
         # Set noitcudorps
-        print(f'__unwrap strings: {strings}')
+        #print(f'__unwrap strings: {strings}')
         if compatibility != Compatibility.EQUAL:
             for noitcudorpToken in self.production.noitcudorps:
                 index = noitcudorpToken.token.settings["id"]
                 noitcudorp = rManagerA.getNoitcudorp(noitcudorpToken.token.tok)
-                print(f'noitcudorpToken index: {index}')
+                #print(f'noitcudorpToken index: {index}')
                 match method:
                         case UnwrapMethod.ESRAP:
                             generated = noitcudorp.generate()
@@ -556,7 +556,7 @@ class Column():
         self.states = states
         self.ruleManager = ruleManager
 
-    def containsState(self, name: str, index: int):
+    def __containsState(self, name: str, index: int):
         for state in self.states:
             if (state.production.name == name and state.position == index):
                 #print(f'{state.production.name} == {name}, {state.position} == {index}')
@@ -565,7 +565,7 @@ class Column():
         #print(f'containsState false')
         return False
 
-    def predict(self, productionName: str, currentChart):
+    def predict(self, productionName: str, currentChart) -> List[State]:
         new = []
         #print(f'predict: productionName: {productionName}, currentChart {currentChart}')
         FoundMatch = False
@@ -574,9 +574,12 @@ class Column():
             if (prod.name == productionName):
                 #print('matching name')
                 FoundMatch = True
-                if (not self.containsState(productionName, 0)):
+                if (not (self.__containsState(productionName, 0))):
                     #print(f'predicted: {prod.name}')
-                    new.append(State(prod, currentChart))
+                    # So it does not contain the zero state
+                    newState = State(prod, currentChart)
+                    new.append(newState)
+                    new.extend(newState.createInitial())
                 
         if not FoundMatch:
             print(f'{bcolors.FAIL}ERROR: production with name "{productionName}" not found!{bcolors.ENDC}')
@@ -614,13 +617,20 @@ class TokenizeSettings(Enum):
     QUOTE_DOUBLE         = 3,
     SQUARE_BRACKET       = 4
 
+
 def tokenize(input: str, interupts = ['+', '-', '*', ':', '/', '(', ')', '\n', ',', '{', '}', '\'', '→', '⇇', ';']):
     tokens = []
     curr = ''
     status = TokenizeSettings.NORMAL
+    old_char = ''
+    escaped = False
     for c in input:
+        if c == '\\' and not escaped:
+            escaped = True
+            #print('NOW ESCAPED')
+            continue
         #tokens_txt = ' '.join(map(str, tokens))
-        #print(f'status: {status}, curr: "{curr}" adding char: ' + c)
+        #print(f'status: {status}, escaped: {escaped}, curr: "{curr}" adding char: ' + c)
         
         if status == TokenizeSettings.NORMAL_SETTINGS_INT and c == '{':
             tokens.append(curr)
@@ -637,7 +647,7 @@ def tokenize(input: str, interupts = ['+', '-', '*', ':', '/', '(', ')', '\n', '
                 tokens.append(c)
             status = TokenizeSettings.NORMAL
             curr = ''
-        elif (status == TokenizeSettings.NORMAL and c == '"'):
+        elif (status == TokenizeSettings.NORMAL and c == '"' and not escaped):
             tokens.append(curr)
             curr = c
             status = TokenizeSettings.QUOTE_DOUBLE
@@ -645,9 +655,11 @@ def tokenize(input: str, interupts = ['+', '-', '*', ':', '/', '(', ')', '\n', '
             tokens.append(curr)
             curr = c
             status = TokenizeSettings.SQUARE_BRACKET
+        elif (status == TokenizeSettings.NORMAL and c == '-' and (not old_char in "0123456789")):
+            curr += c
         elif (status == TokenizeSettings.QUOTE_DOUBLE):
             curr += c
-            if c == '"':
+            if c == '"' and not escaped:
                 status = TokenizeSettings.NORMAL
         elif (status == TokenizeSettings.SQUARE_BRACKET):
             curr += c
@@ -662,6 +674,8 @@ def tokenize(input: str, interupts = ['+', '-', '*', ':', '/', '(', ')', '\n', '
         else:
             print(f'ERROR: status: {status}')
             assert False
+        old_char = c
+        escaped = False
 
     if(curr != ''):
         tokens.append(curr)

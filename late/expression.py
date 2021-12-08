@@ -36,7 +36,7 @@ class Terminal:
         settings = self.token.settings
         if (settings['regex']):
             self.rule = rule
-            print(f'Terminal with regex rule: {self.token.tok}')
+            #print(f'Terminal with regex rule: {self.token.tok}')
             self.reg = re.compile(self.token.tok)
         else:
             self.rule = rule
@@ -337,9 +337,9 @@ class RuleManager:
         imported_productions = importsState[0]
         imported_noitcudorp  = importsState[1]
 
-        print('------------')
-        print([str(p) for p in imported_productions])
-        print([str(p) for p in imported_noitcudorp])
+        #print('------------')
+        #print([str(p) for p in imported_productions])
+        #print([str(p) for p in imported_noitcudorp])
 
         #TODO: handle delete statements!
         
