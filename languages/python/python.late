@@ -9,12 +9,12 @@ small_stmt  →
     | return_stmt
     | import_stmt
     | raise_stmt
-    | 'pass' 
+    | "pass"
     | del_stmt
     | yield_stmt
     | assert_stmt
-    | 'break' 
-    | 'continue' 
+    | "break"
+    | "continue"
     | global_stmt
     | nonlocal_stmt
 compound_stmt →
@@ -26,7 +26,20 @@ compound_stmt →
     | try_stmt
     | while_stmt
 
-
+augassign:
+    | "+=" 
+    | "-=" 
+    | "*=" 
+    | "@=" 
+    | "/=" 
+    | "%=" 
+    | "&=" 
+    | "|=" 
+    | "^=" 
+    | "<<=" 
+    | ">>=" 
+    | "**=" 
+    | "//=" 
 
 
 
