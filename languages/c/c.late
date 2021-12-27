@@ -85,12 +85,14 @@ cast-expression           → unary-expression | "(" type-name ")" cast-expressi
 expression → assignment-expression | expression "," assignment-expression
 
 unary-operator            → "&" | "*" | "+" | "-" | "~" | "!"
-unary-expression → postfix-expression | "++" unary-expression | "--" unary-expression | unary-operator cast-expression
+unary-expression → postfix-expression | "++" unary-expression | "--" unary-expression | unary-operator cast-expression | "sizeof" unary-expression | "sizeof" "(" type-name ")" | "_Alignof" "(" type-name ")" 
 
-postfix-expression → primary-expression
+postfix-expression → primary-expression | postfix-expression "[" expression "]" | postfix-expression "(" argument-expression-list{"opt":true} ")" | postfix-expression "." identifier | postfix-expression "->" identifier | postfix-expression "++" | postfix-expression "--" | "(" type-name ")" "{" initializer-list ","{"opt":true} "}" 
+argument-expression-list → assignment-expression | argument-expression-list "," assignment-expression
+
 type-name → specifier-qualifier-list abstract-declarator{"opt":true}
 abstract-declarator → pointer | pointer{"opt":true} direct-abstract-declarator
-direct-abstract-declarator → "(" abstract-declarator ")" | direct-abstract-declarator{"opt":true} "[" type-qualifier-list{"opt":true} assignment-expression{"opt":true} "]" | direct-abstract-declarator{"opt":true} "[" "static" type-qualifier-list{"opt":true} assignment-expression{"opt":true} "]" | direct-abstract-declarator{"opt":true} "[" type-qualifier-list "static" assignment-expression{"opt":true} "]" | direct-abstract-declarator{"opt":true} "[" "*" "]" | direct-abstract-declarator{"opt":true} "(" parameter-type-list{"opt":true} ")"
+direct-abstract-declarator → "(" abstract-declarator ")" | direct-abstract-declarator{"opt":true} "[" type-qualifier-list{"opt":true} assignment-expression{"opt":true} "]" | direct-abstract-declarator{"opt":true} "[" "static" type-qualifier-list{"opt":true} assignment-expression "]" | direct-abstract-declarator{"opt":true} "[" type-qualifier-list "static" assignment-expression "]" | direct-abstract-declarator{"opt":true} "[" "*" "]" | direct-abstract-declarator{"opt":true} "(" parameter-type-list{"opt":true} ")"
 parameter-type-list        → parameter-list | parameter-list "," "..."
 parameter-list             → parameter-declaration | parameter-list "," parameter-declaration
 parameter-declaration      → declaration-specifiers declarator | declaration-specifiers abstract-declarator{"opt":true}
@@ -120,12 +122,12 @@ struct-declaration      → specifier-qualifier-list struct-declarator-list{"opt
 struct-declarator-list  → struct-declarator | struct-declarator-list "," struct-declarator
 struct-declarator  → declarator | declarator{"opt":true} "," constant-expression
 declarator         → pointer{"opt":true} direct-declarator
-direct-declarator  → identifier | "(" declarator ")" | "TODO"
+direct-declarator  → identifier | "(" declarator ")" | direct-declarator "[" type-qualifier-list{"opt": true} assignment-expression{"opt": true} "]" | direct-declarator "[" "static" type-qualifier-list{"opt": true} assignment-expression "]" | direct-declarator "[" type-qualifier-list "static" assignment-expression "]" | direct-declarator "[" type-qualifier-list "]" | direct-declarator "(" parameter-type-list ")" | direct-declarator "(" identifier-list{"opt": true} ")"
 declaration        → declaration-specifiers init-declarator-list{"opt":true} ";" | static_assert-declaration
 init-declarator-list → init-declarator | init-declarator-list "," init-declarator
 init-declarator      → declarator | declarator "=" initializer
 
-
+identifier-list → identifier | identifier-list "," identifier
 static_assert-declaration → "_Static_assert" "(" constant-expression "," string-literal ")" ";"
 
 
