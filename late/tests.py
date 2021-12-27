@@ -10,7 +10,7 @@ class CheckUnit:
     """
     def checkRegex(self, ruleManagerA: RuleManager, ruleManagerB: RuleManager, input: str, outputRegex: str, begin = None):
         matched = match(ruleManagerA, tokenize(input), begin)
-        print(f'input: "{input}", matched: "{matched}", expected output regex: "{outputRegex}"')
+        #print(f'input: "{input}", matched: "{matched}", expected output regex: "{outputRegex}"')
         if matched == None:
             self.assertEqual(outputRegex, None)
         else:
@@ -20,7 +20,7 @@ class CheckUnit:
             reg = re.compile(outputRegex)
             r = reg.match(esr)
             t = False if r==None else (r.start() == 0)
-            print(f'input: {input}, esr: "{esr}", expected output regex: "{outputRegex}"')
+            #print(f'input: {input}, esr: "{esr}", expected output regex: "{outputRegex}"')
             self.assertTrue(t)
 
     """
@@ -28,7 +28,7 @@ class CheckUnit:
     """
     def check(self, ruleManagerA: RuleManager, ruleManagerB: RuleManager, input: str, output: str, begin = None):
         matched = match(ruleManagerA, tokenize(input), begin)
-        print(f'input: "{input}", matched: "{matched}", expected output: "{output}"')
+        #print(f'input: "{input}", matched: "{matched}", expected output: "{output}"')
         if matched == None:
             print(f'{bcolors.FAIL}ERROR: MATCH WAS NONE!{bcolors.ENDC}')
             self.assertEqual(output, None)
@@ -36,7 +36,7 @@ class CheckUnit:
             self.assertNotEqual(output, None)
             vals = matched.fullStr()
             esr = matched.esrap(ruleManagerA, ruleManagerB)
-            print(f'input: "{input}", esr: "{esr}", expected output: "{output}"')
+            #print(f'input: "{input}", esr: "{esr}", expected output: "{output}"')
             self.assertEqual(esr, output)
 
     def runSubtests(self, ruleManagerA, ruleManagerB, inputs, outputs, begin = None):
@@ -812,7 +812,7 @@ number → [0-9]
         projectManager.processProductions()
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs, "b-1-0")
 
-    #@unittest.skip("bracket_transform")
+    @unittest.skip("bracket_transform")
     def test_bracket_transform(self):
         ruleManagerA = parseIR("""{"id": "ir"}
 start → starts

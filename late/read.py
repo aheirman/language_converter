@@ -75,7 +75,7 @@ class Parser():
 
                         if bit.values[1] != None:
                             unwrapped = bit.values[1].esrap(IRruleManager, IRruleManager)
-                            print(f'__gen_prod: {unwrapped}')
+                            #print(f'__gen_prod: {unwrapped}')
                             bit_settings.update(json.loads(unwrapped))
 
                         tokenList.append(Token(bit_txt, bit_settings))
@@ -113,11 +113,11 @@ class Parser():
 
     def parseIR(self, input : str):
         tokens = tokenize(input)
-        print(f'tokens: {tokens}')
+        #print(f'tokens: {tokens}')
         matched = match(IRruleManager, tokens)
         if matched == None:
             print(f"{bcolors.FAIL}ERROR: THE LATE SOURCE FILE IS NON COMPLIANT{bcolors.ENDC}")
-            print(f'input: {input}')
+            print(f'ERROR: input: {input}')
             assert False
 
         #print(f'matched: {type(matched)}, {matched.production.uuid}')

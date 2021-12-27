@@ -26,12 +26,21 @@ class State:
         self.values = []
         self.position = 0
         self.uuid = uuid.uuid4()
-    
+
     def __skipToPosPad(self, pos):
         assert self.position <= pos
         while self.position < pos:
             self.values.append(None)
             self.position += 1
+    
+    def __deepcopy__(self, memodict={}):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        result.__dict__.update(self.__dict__)
+        result.values = copy.deepcopy(self.values, memodict)
+        return result
+    
+
 
     #NOTE: The position shift of us occurs after this is run
     def createNewStates(self) -> List[State]:
@@ -618,13 +627,16 @@ class TokenizeSettings(Enum):
     SQUARE_BRACKET       = 4
 
 
-def tokenize(input: str, interupts = ['+', '-', '*', ':', '/', '(', ')', '\n', ',', '{', '}', '\'', '→', '⇇', ';']):
+def tokenize(input: str, interupts = ['+', '-', '*', ':', '/', '(', ')', '\n', ',', '{', '}', '\'', '→', '⇇', ';'], delete = []):
     tokens = []
     curr = ''
     status = TokenizeSettings.NORMAL
     old_char = ''
     escaped = False
     for c in input:
+        if c in delete:
+            continue
+        
         if c == '\\' and not escaped:
             escaped = True
             #print('NOW ESCAPED')
@@ -683,6 +695,10 @@ def tokenize(input: str, interupts = ['+', '-', '*', ':', '/', '(', ')', '\n', '
     tokens = [tok for tok in tokens if (len(tok) != 0)]
     return tokens
 
+def tokenize_c(input: str):
+    return tokenize(input, delete = ['\n'])
+
+
 def tokenizeFromJson(code: list):
     tokens = []
     #print(f'code: {code}')
@@ -702,7 +718,7 @@ def tokenizeFromJson(code: list):
 
 def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.UUID] = None):
     #print(str(ruleManager))
-    tokenStr = '\n\t'.join([str(tok) for tok in inTokens])
+    #tokenStr = '\n\t'.join([str(tok) for tok in inTokens])
     #print(f'tokenized: \n\t{tokenStr}, len: {len(inTokens)}')
     #table = [Column(ruleManager, [State(prod, 0) for prod in ruleManager.productions])]
     table = [Column(ruleManager, []) for i in range(len(inTokens)+1)]
@@ -752,8 +768,8 @@ def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.U
                     predict(col, state, currentChart)
 
         #post
-        #print(f'------{currentChart}, {bcolors.OKBLUE}{repr(tok)}{bcolors.ENDC}: POST------')
-        #print('\n'.join(map(str, col.states)))
+        print(f'------{currentChart}, {bcolors.OKBLUE}{repr(tok)}{bcolors.ENDC}: POST------')
+        print('\n'.join(map(str, col.states)))
     
     # Find result
     matches = []

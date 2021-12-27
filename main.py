@@ -7,7 +7,7 @@ import  late.read
 
 #"""
 suite = unittest.TestSuite()
-suite.addTest(READ2("test_read2"))
+suite.addTest(ESRAP("test_add"))
 runner = unittest.TextTestRunner()
 runner.run(suite)
 #"""
