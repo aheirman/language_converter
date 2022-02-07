@@ -3,3 +3,11 @@ How do multiple files work?
     The import key must refer to the id of the desired file.
 
 
+
+TODO: Add a faster parser?
+	PEG:
+		lineair but non lineiar due to left recursion required (good for for python)
+		Tutorial: https://medium.com/@gvanrossum_83706/peg-parsing-series-de5d41b2ed60
+	PIKA lineair has left and right recursion, bottom up, right to left(?!)
+		SOUNDS GOOD! (large constant factor)
+
