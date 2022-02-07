@@ -7,8 +7,8 @@ import graphviz
 import html
 
 
-from late.helper import *
-from late.expression import *
+from eq.helper import *
+from eq.expression import *
 
 class UnwrapMethod(Enum):
     ESRAP = 1,
