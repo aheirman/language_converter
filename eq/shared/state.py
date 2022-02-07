@@ -1,14 +1,12 @@
-from __future__ import annotations
-
 import copy
-import uuid
-import itertools
-import graphviz
-import html
 
+from enum   import Enum
+from typing import Optional
 
 from eq.helper import *
-from eq.expression import *
+from eq.shared.expression import *
+
+
 
 class UnwrapMethod(Enum):
     ESRAP = 1,
@@ -19,12 +17,13 @@ class Compatibility(Enum):
     OTHER_EXPLICIT  = 1,
     SELF_EXPORT  = 2
 
+
+
 class State:
     def __init__(self, production, originPosition):
         self.production = production
         self.originPosition = originPosition
         self.values = []
-        self.position = 0
         self.uuid = uuid.uuid4()
 
     def __skipToPosPad(self, pos):
@@ -40,90 +39,8 @@ class State:
         result.values = copy.deepcopy(self.values, memodict)
         return result
     
-
-
-    #NOTE: The position shift of us occurs after this is run
-    def createNewStates(self) -> List[State]:
-        retStates = []
-        
-        myCurrentPos = self.position
-        mySettings = self.production.input_steps[myCurrentPos].token.settings
-
-        if containsAndTrue(mySettings, 'alo'):
-                newState = copy.deepcopy(self)
-                newState.position = myCurrentPos
-                retStates.append(newState)
-
-        pos = myCurrentPos + 1
-        while not pos == len(self.production.input_steps):
-            set = self.production.input_steps[pos].token.settings
-            if containsAndTrue(set, 'opt'):
-                newState = copy.deepcopy(self)
-                newState.position += 1 #Passed my state
-                newState.__skipToPosPad(pos+1)
-                retStates.append(newState)
-            else:
-                break
-            pos += 1
-        return retStates
-
-    """
-        create extra states needed for optionals
-    """
-    def createInitial(self) -> List[State]:
-        retStates = []
-        
-        myCurrentPos = self.position
-        mySettings = self.production.input_steps[myCurrentPos].token.settings
-        
-        pos = myCurrentPos # NO plus 1
-        while not pos == len(self.production.input_steps):
-            set = self.production.input_steps[pos].token.settings
-            if containsAndTrue(set, 'opt'):
-                newState = copy.deepcopy(self)
-                newState.position += 1 #Passed my state
-                newState.__skipToPosPad(pos+1)
-                retStates.append(newState)
-            else:
-                break
-            pos += 1
-        return retStates
-
-    def __str__(self):
-        str = f'{self.production.name.ljust(15)} → {{'
-        for index, step in enumerate(self.production.input_steps):
-            if (index == self.position):
-                str += ' ȣ '
-            
-            str += step.name() + ' '
-        if (len(self.production.input_steps) == self.position):
-            str += ' ȣ '
-
-        str += '},'
-        str = str.ljust(40)
-        str += f'from {self.originPosition}'
-        return str
-    
     def name(self) -> str:
         return self.production.name
-
-    def nextIsTerminal(self):
-        #print(f'name: {self.name()}, pos: {self.position}, Terminal: {term}')
-        if self.position < len(self.production.input_steps):
-            if isinstance(self.production.input_steps[self.position], Terminal):
-                return True
-        return False
-
-    """
-    def match(self, input):
-        assert self.containsNextTerminal()
-        
-        for pos in self.positions:
-            if self.production.input_steps[pos].match(input):
-                return True
-
-        return False
-     """
 
     def __setValue2(self, val):
         settings = self.production.input_steps[self.position].token.settings
@@ -145,49 +62,6 @@ class State:
         else:
             assert False
 
-    def advance(self, val) -> list[State]:
-        #print(f'advance self.position: {self.position}')
-        assert self.position < self.production.len()
-        myPos = self.position
-
-        #If the current position is
-        self.__setValue(val)
-
-        retStates = self.createNewStates()
-        self.position = myPos + 1
-
-        return retStates
-
-
-    def MatchThenAdvanceStateCopies(self, tok: Token):
-        #print(f'MatchThenAdvanceStateCopies {str(tok)}')
-        retStates = []
-        #for index, pos in enumerate(self.positions):
-
-        pos = self.position
-        #print(f'MatchThenAdvanceStateCopies index: pos: {pos}, tok: {tok}')
-        if pos < self.production.len():
-            #print(f'MatchThenAdvanceStateCopies Match?')
-            TernOrNonTerm = self.production.input_steps[pos]
-            if isinstance(TernOrNonTerm, Terminal):
-                if TernOrNonTerm.match(tok):
-                    #print(f'MatchThenAdvanceStateCopies Matched')
-                    newState = copy.deepcopy(self)
-                    retStates.extend(newState.advance(tok))
-                    retStates.append(newState)
-
-        #print(f'retStates: {str([str(stat) for stat in retStates])}')
-        return retStates
-
-    def isCompleted(self):
-        return self.production.len() == self.position
-
-    def getNextName(self) -> str:
-        pos = self.position
-        if pos < self.production.len():
-            return self.production.input_steps[pos].name()
-        else:
-            assert False
 
     def fullStr(self):
         def toStr(inVal):
@@ -560,233 +434,3 @@ class State:
         return ret
 
 
-class Column():
-    def __init__(self, ruleManager, states):
-        self.states = states
-        self.ruleManager = ruleManager
-
-    def __containsState(self, name: str, index: int):
-        for state in self.states:
-            if (state.production.name == name and state.position == index):
-                #print(f'{state.production.name} == {name}, {state.position} == {index}')
-                #print(f'containsState true')
-                return True
-        #print(f'containsState false')
-        return False
-
-    def predict(self, productionName: str, currentChart) -> List[State]:
-        new = []
-        #print(f'predict: productionName: {productionName}, currentChart {currentChart}')
-        FoundMatch = False
-        for prod in self.ruleManager.productions:
-            #print(f'predict: prod.name "{prod.name}"')
-            if (prod.name == productionName):
-                #print('matching name')
-                FoundMatch = True
-                if (not (self.__containsState(productionName, 0))):
-                    #print(f'predicted: {prod.name}')
-                    # So it does not contain the zero state
-                    newState = State(prod, currentChart)
-                    new.append(newState)
-                    new.extend(newState.createInitial())
-                
-        if not FoundMatch:
-            print(f'{bcolors.FAIL}ERROR: production with name "{productionName}" not found!{bcolors.ENDC}')
-            assert False
-        #print(f'predict new state: {str([str(state) for state in new])}')
-        return new
-        
-    
-    def append(self, state):
-        self.states.append(state)
-    
-    def extend(self, states):
-
-        self.states.extend(states)
-
-
-def complete(table, state: State):
-    # complete non terminals
-    #print(f'complete name: {state.production.name}, from: {state.originPosition}')
-    colJ = table[state.originPosition].states
-    newStates = []
-    for stateJ in colJ:
-        if (not stateJ.isCompleted()) and (stateJ.getNextName() == state.production.name) and not stateJ.nextIsTerminal():
-            #print(f' completing name: {stateJ.name()} from: {stateJ.originPosition}')
-            newState = copy.deepcopy(stateJ)
-            newStates.extend(newState.advance(state))
-            newStates.append(newState)
-    return newStates
-
-class TokenizeSettings(Enum):
-    UNKNOWN              = -1,
-    NORMAL               = 0,
-    NORMAL_SETTINGS_INT  = 1,
-    QUOTE_SINGLE         = 2,
-    QUOTE_DOUBLE         = 3,
-    SQUARE_BRACKET       = 4
-
-
-def tokenize(input: str, interupts = ['+', '-', '*', ':', '/', '(', ')', '\n', ',', '{', '}', '\'', '→', '⇇', ';'], delete = []):
-    tokens = []
-    curr = ''
-    status = TokenizeSettings.NORMAL
-    old_char = ''
-    escaped = False
-    for c in input:
-        if c in delete:
-            continue
-        
-        if c == '\\' and not escaped:
-            escaped = True
-            #print('NOW ESCAPED')
-            continue
-        #tokens_txt = ' '.join(map(str, tokens))
-        #print(f'status: {status}, escaped: {escaped}, curr: "{curr}" adding char: ' + c)
-        
-        if status == TokenizeSettings.NORMAL_SETTINGS_INT and c == '{':
-            tokens.append(curr)
-            status = TokenizeSettings.NORMAL
-            curr = '{'
-        elif status == TokenizeSettings.NORMAL_SETTINGS_INT and c == '}':
-            tokens.append(curr)
-            tokens.append('}')
-            status = TokenizeSettings.NORMAL
-            curr = ''
-        elif (status in [TokenizeSettings.NORMAL, TokenizeSettings.NORMAL_SETTINGS_INT] and c in [' ', '\n']): 
-            tokens.append(curr)
-            if c == '\n':
-                tokens.append(c)
-            status = TokenizeSettings.NORMAL
-            curr = ''
-        elif (status == TokenizeSettings.NORMAL and c == '"' and not escaped):
-            tokens.append(curr)
-            curr = c
-            status = TokenizeSettings.QUOTE_DOUBLE
-        elif (status == TokenizeSettings.NORMAL and c == '['):
-            tokens.append(curr)
-            curr = c
-            status = TokenizeSettings.SQUARE_BRACKET
-        elif (status == TokenizeSettings.NORMAL and c == '-' and (not old_char in "0123456789")):
-            curr += c
-        elif (status == TokenizeSettings.QUOTE_DOUBLE):
-            curr += c
-            if c == '"' and not escaped:
-                status = TokenizeSettings.NORMAL
-        elif (status == TokenizeSettings.SQUARE_BRACKET):
-            curr += c
-            if c == ']':
-                status = TokenizeSettings.NORMAL_SETTINGS_INT
-        elif ((status == TokenizeSettings.NORMAL) and (c in interupts)):
-            tokens.append(curr)
-            tokens.append(c)
-            curr = ''
-        elif (status == TokenizeSettings.NORMAL and c not in ['"', '[']) or status == TokenizeSettings.NORMAL_SETTINGS_INT:
-            curr += c
-        else:
-            print(f'ERROR: status: {status}')
-            assert False
-        old_char = c
-        escaped = False
-
-    if(curr != ''):
-        tokens.append(curr)
-    
-    tokens = [tok for tok in tokens if (len(tok) != 0)]
-    return tokens
-
-def tokenize_c(input: str):
-    return tokenize(input, delete = ['\n'])
-
-
-def tokenizeFromJson(code: list):
-    tokens = []
-    #print(f'code: {code}')
-    for line in code:
-        #print(f'line: {line}')
-        for obj in line['words']:
-            #print(f'obj: {obj}')
-            #If type is 1 it;s modified
-            if (obj['style'] == 1):
-                newTokens = tokenize(obj['word'])
-                tokens.extend(newTokens)
-            else:
-                tokens.append(obj['word'])
-    
-    tokens = [tok for tok in tokens if (len(tok) != 0)]
-    return tokens
-
-def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.UUID] = None):
-    #print(str(ruleManager))
-    #tokenStr = '\n\t'.join([str(tok) for tok in inTokens])
-    #print(f'tokenized: \n\t{tokenStr}, len: {len(inTokens)}')
-    #table = [Column(ruleManager, [State(prod, 0) for prod in ruleManager.productions])]
-    table = [Column(ruleManager, []) for i in range(len(inTokens)+1)]
-
-    if beginRules == None:
-        table[0].extend([State(ruleManager.productions[0], 0)])
-        #TODO: This only handles the first rule in a line not all the rules in that line...
-        beginRules = [ruleManager.productions[0].uuid]
-    else:
-        table[0].extend([State(ruleManager.productions[i], 0) for i in range(len(ruleManager.productions)) if ruleManager.productions[i].uuid in beginRules])
-    
-
-    # Init 
-    newStates = []
-    for state in table[0].states:
-        newStates.extend(state.createInitial())
-    table[0].extend(newStates)
-
-    def predict(col, state, currentChart):
-        #Prediction
-        #assert not state.nextIsTerminal()
-        name = state.getNextName()
-        #print(f'Predicting {currentChart}, adding: {name}')
-        
-        col.extend(col.predict(name, currentChart))
-    
-    for currentChart, col in enumerate(table):
-        #pre
-        tok = inTokens[currentChart] if currentChart<len(inTokens) else None
-        #print(f'------{currentChart}, {tok}: PRE------')
-        #print('\n'.join(map(str, col.states)))
-
-        #real work
-        for state in col.states:
-            #print(f'sate name: {state.production.name}, checking completion')
-            if (state.isCompleted()):
-                #print(f'sate name: {state.production.name}, is completed: {state.isCompleted()}!')
-                col.states.extend(complete(table, state))
-
-            elif tok != None:
-                if state.nextIsTerminal():
-                    #print(f'{state.production.name} is scanning')
-                    newStates = state.MatchThenAdvanceStateCopies(tok)
-                    table[currentChart+1].extend(newStates)
-                else:
-                    #New NonTerminals may be found
-                    predict(col, state, currentChart)
-
-        #post
-        print(f'------{currentChart}, {bcolors.OKBLUE}{repr(tok)}{bcolors.ENDC}: POST------')
-        print('\n'.join(map(str, col.states)))
-    
-    # Find result
-    matches = []
-    for status in table[-1].states:
-        if (status.originPosition == 0 and status.isCompleted() and status.production.uuid in beginRules):
-            matches.append(status)
-    
-    #print(f'MATCHES: {matches}')
-
-    #for index, match in enumerate(matches):
-    #    match.getDot(ruleManager, ruleManager, f'index-{index}.gv')
-    if (len(matches) > 1):
-        print(f'{bcolors.FAIL}ERROR: MULTIPLE MATCHES{bcolors.ENDC}')
-        for index, match in enumerate(matches):
-            match.getDot(ruleManager, ruleManager, f'index-{index}.gv')
-            #print(f'{bcolors.FAIL}{esr}{bcolors.ENDC}')
-        
-        return None
-    
-    return matches[0] if len(matches) == 1 else None

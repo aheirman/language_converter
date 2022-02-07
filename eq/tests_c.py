@@ -2,7 +2,7 @@ import unittest
 import cProfile
 from pstats import Stats
 
-from .late import *
+from .early.late import *
 from .read import *
 from .tests import *
 
