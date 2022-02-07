@@ -11,3 +11,10 @@ TODO: Add a faster parser?
 	PIKA lineair has left and right recursion, bottom up, right to left(?!)
 		SOUNDS GOOD! (large constant factor)
 
+	RUST:
+		grammer @ https://doc.rust-lang.org/reference/tokens.html
+	UNICDOE:
+		https://unicode.org/reports/tr31/
+
+SRC:
+	Overvieuw of parsing algos: https://stereobooster.com/posts/an-overview-of-parsing-algorithms/
