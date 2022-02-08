@@ -2,6 +2,8 @@ How do multiple files work?
     files can be imported using import key of the settings in the file.
     The import key must refer to the id of the desired file.
 
+A ← e, where A is a unique rule name, and e
+is a parsing expression, also referred to as a clause and the combination is a production.
 
 
 TODO: Add a faster parser?

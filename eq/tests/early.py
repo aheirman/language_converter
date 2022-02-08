@@ -1,8 +1,8 @@
 import uuid
 import unittest
 
-from .early.late import *
-from .read import *
+from eq.early.late import *
+from .early_read import *
 
 class CheckUnit:
     """

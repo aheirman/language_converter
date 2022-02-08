@@ -1,10 +1,10 @@
 from typing import Optional
 import asyncio
 
-from .early.late import *
-from .read_hand import *
-from .project_manager import *
-from .shared.tokenize import *
+from eq.early.late import *
+from eq.read_hand import *
+from eq.project_manager import *
+from eq.shared.tokenize import *
 
 def __readFile(url: str) -> str:
     with open(url) as f:

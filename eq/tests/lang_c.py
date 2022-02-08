@@ -2,9 +2,9 @@ import unittest
 import cProfile
 from pstats import Stats
 
-from .early.late import *
-from .read import *
-from .tests import *
+from eq.early.late import *
+from .early_read import *
+from .early import *
 
 ruleManagerA = getMetaIrProductions("./languages/c/c.late")
 
