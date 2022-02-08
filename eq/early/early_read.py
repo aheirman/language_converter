@@ -189,51 +189,11 @@ def parseIR(input : str):
     parsy = Parser()
     return parsy.parseIR(input)
 
-def __parseSrc(lines: list[str], rManager: Optional[RuleManager] = None):
-    if productions == None:
-        uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
-            ([uuids[0]], 'calculation', 'term'),
-            ([uuids[1]], 'term', 'number "+" term'),
-            ([uuids[2]], 'term', 'number'),
-            ([uuids[3]], 'number', '[0-9]')])
-        matched = match(Productions(prodA), tokenize(lines))
-        
-        vals = matched.fullStr()
-        return vals
-        #esr = matched.esrap(Productions(prodA))
-        #self.assertEqual(esr, outputExpect)
-    #return 
-
-def __parseFile(lines: list[str], rManager: Optional[RuleManager] = None):
-    if productions == None:
-        uuids = [uuid.uuid4() for i in range(10)]
-        prodA = Productiongenerator.createAllProductions([
-            ([uuids[0]], 'calculation', 'term'),
-            ([uuids[1]], 'term', 'number "+" term'),
-            ([uuids[2]], 'term', 'number'),
-            ([uuids[3]], 'number', '[0-9]')])
-        matched = match(Productions(prodA), tokenize(lines))
-        
-        vals = matched.fullStr()
-        return vals
-        #esr = matched.esrap(Productions(prodA))
-        #self.assertEqual(esr, outputExpect)
-    #return 
-
 
 def getMetaIrProductions(url: str) -> list[Production]:
     ruleManager = parseIR(__readFile(url))
     projectManager = ProjectManager([ruleManager, ruleManager])
     projectManager.processProductions()
     return ruleManager
-    
-def parse_file_to_file(url_grammer_src: str, url_grammer_dest: str, tokens: list) -> str:
-    prods = __parseIR(__readFileLines(url_grammer_src))
-    rManager = Productions(prods)
-    #print(rManager)
-    return match(rManager, tokens)
-    #productions_lang = __parseFile(__readFile(url_grammer), rManager)
-    #match(productions_lang, tokens)
 
 
