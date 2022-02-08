@@ -1,4 +1,4 @@
-from .shared.expression import * 
+from eq.shared.expression import * 
 
 
 class ProjectManager:

@@ -3,7 +3,7 @@ import cProfile
 from pstats import Stats
 
 from eq.early.late import *
-from eq.early.early_read import *
+from eq.shared.grammar_reader import *
 from .early import *
 
 ruleManagerA = getMetaIrProductions("./languages/c/c.late")

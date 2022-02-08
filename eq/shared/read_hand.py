@@ -1,6 +1,6 @@
 import enum
 
-from .early.late import *
+from eq.early.late import *
 
 class UUID_GEN():
     def __init__(self, pageNumber, lineNumber):

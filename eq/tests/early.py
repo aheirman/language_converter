@@ -2,7 +2,7 @@ import uuid
 import unittest
 
 from eq.early.late import *
-from eq.early.early_read   import *
+from eq.shared.grammar_reader   import *
 from .early_shared  import *
 
 class ESRAP(unittest.TestCase, CheckUnit):

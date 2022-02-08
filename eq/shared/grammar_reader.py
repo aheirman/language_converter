@@ -2,9 +2,9 @@ from typing import Optional
 import asyncio
 
 from eq.early.late import *
-from eq.read_hand import *
-from eq.project_manager import *
-from eq.shared.tokenize import *
+from .read_hand import *
+from .project_manager import *
+from .tokenize import *
 
 def __readFile(url: str) -> str:
     with open(url) as f:

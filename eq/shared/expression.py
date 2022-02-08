@@ -1,4 +1,4 @@
-from eq.helper import *
+from .helper import *
 
 import copy
 import json

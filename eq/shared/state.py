@@ -3,8 +3,8 @@ import copy
 from enum   import Enum
 from typing import Optional
 
-from eq.helper import *
-from eq.shared.expression import *
+from .helper import *
+from .expression import *
 
 
 

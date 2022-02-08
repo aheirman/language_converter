@@ -7,7 +7,7 @@ import graphviz
 import html
 
 
-from eq.helper import *
+from eq.shared.helper import *
 from eq.shared.expression import *
 from eq.shared.state import *
 
