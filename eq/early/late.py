@@ -15,7 +15,7 @@ class EarlyState(State):
     def __init__(self, production, originPosition):
         self.originPosition = originPosition
         self.position = 0
-        super().__init__(production, originPosition)
+        super().__init__(production)
 
     def __skipToPosPad(self, pos):
         assert self.position <= pos
@@ -288,8 +288,8 @@ def match(ruleManager: RuleManager, inTokens: list[str], beginRules: list[uuid.U
                     predict(col, state, currentChart)
 
         #post
-        print(f'------{currentChart}, {bcolors.OKBLUE}{repr(tok)}{bcolors.ENDC}: POST------')
-        print('\n'.join(map(str, col.states)))
+        #print(f'------{currentChart}, {bcolors.OKBLUE}{repr(tok)}{bcolors.ENDC}: POST------')
+        #print('\n'.join(map(str, col.states)))
     
     # Find result
     matches = []

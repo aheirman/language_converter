@@ -45,6 +45,16 @@ class Parser():
         self.noitcudorps = []
         self.merges      = []
 
+        # Used by the pika parser
+        self.rule_to_ordered_productions = {}
+
+    def __add_production(self, id, exp_name, tokenList, comp):
+        self.productions.append(Production(id, exp_name, tokenList, comp))
+        if exp_name in self.rule_to_ordered_productions:
+            self.rule_to_ordered_productions[exp_name].append(id)
+        else:
+            self.rule_to_ordered_productions[exp_name] = [id]
+
     def __gen_prod(self, exp_name, exp_settings, multi_prod, real_uuid = False):
         while multi_prod != None:
             single_prod = multi_prod.values[0]
@@ -93,6 +103,7 @@ class Parser():
 
                         tokenList.append(Token(bit_txt, bit_settings))
                     case 'ir-10-3':
+                        # Brackets
                         bracket_exp_settings = json.loads(bit.values[3].esrap(IRruleManager, IRruleManager)) if bit.values[3] != None else {}
                         bracket_multi_prod = bit.values[1]
                         bracket_name = str(uuid.uuid4())
@@ -107,7 +118,8 @@ class Parser():
             id = str(uuid.uuid4()) if real_uuid else self.gen.next()
             comp = containsNotNoneAndPresent(exp_settings, 'compatible')
             #print(f'{RuleType.PRODUCTION}: {id}:{exp_name} sett: {exp_settings} → {str([str(tok) for tok in tokenList])}')
-            self.productions.append(Production(id, exp_name, tokenList, comp))
+            self.__add_production(id, exp_name, tokenList, comp)
+
             #---
             multi_prod = multi_prod.values[2] if len(multi_prod.values)>1 else None
 
@@ -182,7 +194,7 @@ class Parser():
         imports = [] if page_settings == None or (not 'imports' in page_settings) else page_settings['imports']
         #print(f'imports: {imports}')
         name = f'generated-{random.randint(0,65536)}' if page_settings == None or (not 'id' in page_settings) else page_settings['id']
-        return RuleManager(name, self.productions, self.noitcudorps, self.merges, imports)
+        return RuleManager(name, self.productions, self.noitcudorps, self.merges, imports, self.rule_to_ordered_productions)
 
 
 def parseIR(input : str):

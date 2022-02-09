@@ -5,6 +5,9 @@ How do multiple files work?
 A ← e, where A is a unique rule name, and e
 is a parsing expression, also referred to as a clause and the combination is a production.
 
+So, what are the clauses? 
+	Terminal
+	NonTerminals i.e. Productions
 
 TODO: Add a faster parser?
 	PEG:

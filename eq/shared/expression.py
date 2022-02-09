@@ -16,8 +16,8 @@ class Token:
 
     def __str__(self):
         return f'{{token: "{self.tok}", settings: {self.settings}}}' if self.settings != {} else f'{{token: {self.tok}}}'
-
-class NonTerminal:
+    
+class NonTerminal():
     def __init__(self, tok):
         self.token = tok
         self.token.settings.pop('regex', None)
@@ -28,7 +28,7 @@ class NonTerminal:
     def name(self):
         return self.token.tok
 
-class Terminal:
+class Terminal():
     def __init__(self, rule: Token):
         self.token = rule
         #print(f'{self.token}, {self.token.settings}')
@@ -167,6 +167,11 @@ class Production:
 
     def len(self):
         return len(self.input_steps)
+
+    """
+    def name(self):
+        return self.name
+    """
 
 class TokenizeSettings(Enum):
     PRE = 0
@@ -325,12 +330,14 @@ class RuleManager:
     def generateMap(self):
         self.RuleProdMap = dict(zip([prod.stdandard for prod in self.my_productions], [prod.stdandard for prod in self.my_productions]))
 
-    def __init__(self, name, productions: list[Production], noitcudorps: list[Noitcudorp], merges: list[Merge], imports: list[str]):
+    def __init__(self, name, productions: list[Production], noitcudorps: list[Noitcudorp], merges: list[Merge], imports: list[str], rule_to_ordered_productions: list = None):
         self.name        = name
         self.productions = productions
         self.noitcudorps = noitcudorps
         self.merges      = merges
         self.imports     = imports
+        self.rule_to_ordered_productions = rule_to_ordered_productions
+        
         self.__checkForErrors()
 
     def process(self, importsState: [list, list]):

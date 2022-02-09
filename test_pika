@@ -1,0 +1,1 @@
+python3.10 -m unittest -b -v -f eq.tests.pika

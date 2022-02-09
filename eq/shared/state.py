@@ -20,9 +20,8 @@ class Compatibility(Enum):
 
 
 class State:
-    def __init__(self, production, originPosition):
+    def __init__(self, production):
         self.production = production
-        self.originPosition = originPosition
         self.values = []
         self.uuid = uuid.uuid4()
 
@@ -276,13 +275,12 @@ class State:
             return ret
         else:
             assert False
-        
 
     """
         NOTE: This uses the noiducorps of rManagerA and the productions of rManagerB
     """
     def __unwarp(self, rManagerA: RuleManager, rManagerB: RuleManager, method: UnwrapMethod, recursion_index = 0, graph: Optional[str] = None) -> str:
-        assert self.isCompleted()
+        #assert self.isCompleted()
         tab_string = '\t' * recursion_index
         #print(f'-------BEGIN unwrap OF {self.name()}-------')
         #print(str(rManagerB))
@@ -346,7 +344,7 @@ class State:
                         strings[index] = State.__createNode(string, settings, graph)
                 
         # Set (Non)Terminals
-        #print(f'{tab_string}stepsA: {stepsA}, self.values: {self.values}')
+        print(f'{tab_string}stepsA: {stepsA}, self.values: {self.values}')
         assert len(stepsA) == len(self.values)
         value_index_a = 0
         for i, step in enumerate(stepsA):
