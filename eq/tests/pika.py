@@ -68,7 +68,7 @@ calculation → "abc"
         projectManager.processProductions()
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
-            #@unittest.skip("")
+    #@unittest.skip("")
     def test_pika_2(self):
 
         ruleManagerA = parseIR("""{"id": "calc"}
@@ -78,6 +78,77 @@ term → "abc"
 
         inputs = ["abc"]
         #inputs = ["0,2,6", "a,2,3"]
+
+        projectManager = ProjectManager([ruleManagerA])
+        projectManager.processProductions()
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
+
+    #@unittest.skip("")
+    def test_pika_3(self):
+
+        ruleManagerA = parseIR("""{"id": "calc"}
+calculation → "abc" "def"{"pad":true}
+""")
+
+        inputs = ["abc def "]
+
+        projectManager = ProjectManager([ruleManagerA])
+        projectManager.processProductions()
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
+    
+    #@unittest.skip("")
+    def test_pika_4(self):
+
+        ruleManagerA = parseIR("""{"id": "calc"}
+calculation → abc "ghj"{"pad":true}
+abc → "abcdef"
+""")
+
+        inputs = ["abcdef ghj "]
+
+        projectManager = ProjectManager([ruleManagerA])
+        projectManager.processProductions()
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
+
+    #@unittest.skip("")
+    def test_pika_5(self):
+
+        ruleManagerA = parseIR("""{"id": "calc"}
+calculation → abc "," digit
+abc → "abcdef"
+digit → "0" 
+""")
+
+        inputs = ["abcdef,0"]
+
+        projectManager = ProjectManager([ruleManagerA])
+        projectManager.processProductions()
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
+
+    @unittest.skip("")
+    def test_pika_6(self):
+
+        ruleManagerA = parseIR("""{"id": "calc"}
+digits → digit
+digit → "0"| "1"
+""")
+
+        inputs = ["0","1"]
+
+        projectManager = ProjectManager([ruleManagerA])
+        projectManager.processProductions()
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
+
+    @unittest.skip("")
+    def test_pika_7(self):
+
+        ruleManagerA = parseIR("""{"id": "calc"}
+calculation → abc "," digit
+abc → "abcdef"
+digit → "0"| "1"
+""")
+
+        inputs = ["abcdef,0","abcdef,1"]
 
         projectManager = ProjectManager([ruleManagerA])
         projectManager.processProductions()

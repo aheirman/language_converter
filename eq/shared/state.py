@@ -344,7 +344,7 @@ class State:
                         strings[index] = State.__createNode(string, settings, graph)
                 
         # Set (Non)Terminals
-        print(f'{tab_string}stepsA: {stepsA}, self.values: {self.values}')
+        print(f'{tab_string} name: {self.production.name} stepsA: {stepsA}, self.values: {self.values}')
         assert len(stepsA) == len(self.values)
         value_index_a = 0
         for i, step in enumerate(stepsA):
