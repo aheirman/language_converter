@@ -125,12 +125,11 @@ digit → "0"
         projectManager.processProductions()
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
-    @unittest.skip("")
+    @unittest.skip("First rule is not singular(?)")
     def test_pika_6(self):
 
         ruleManagerA = parseIR("""{"id": "calc"}
-digits → digit
-digit → "0"| "1"
+digit → "0" | "1"
 """)
 
         inputs = ["0","1"]
@@ -139,13 +138,27 @@ digit → "0"| "1"
         projectManager.processProductions()
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
-    @unittest.skip("")
+    #@unittest.skip("")
     def test_pika_7(self):
+
+        ruleManagerA = parseIR("""{"id": "calc"}
+digits → digit
+digit → "0" | "1"
+""")
+
+        inputs = ["0","1"]
+
+        projectManager = ProjectManager([ruleManagerA])
+        projectManager.processProductions()
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
+
+    #@unittest.skip("")
+    def test_pika_8(self):
 
         ruleManagerA = parseIR("""{"id": "calc"}
 calculation → abc "," digit
 abc → "abcdef"
-digit → "0"| "1"
+digit → "0" | "1"
 """)
 
         inputs = ["abcdef,0","abcdef,1"]

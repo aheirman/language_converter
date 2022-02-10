@@ -54,7 +54,7 @@ class MemoTable:
 
         for seed_parent_clause in memoKey.clause.seed_parent_clauses:
             if updated or seed_parent_clause.can_match_zero_chars:
-                #print(f'!!! priority_queue adding seed_parent_clause: {seed_parent_clause}')
+                print(f'priority_queue adding seed_parent_clause: {seed_parent_clause}')
                 priority_queue.put(seed_parent_clause)
     
     def look_up_best_match(self, memoKey: MemoKey) -> Match:
@@ -65,12 +65,12 @@ class MemoTable:
         print(f'LOOK_UP_BEST_MATCH 3: memoKey: {memoKey},\n\t best_match: {best_match}')
         #print('-----look_up_best_match 2')
         if best_match != None:
-            print(f'LOOK_UP_BEST_MATCH 4: MATCH')
+            print(f'LOOK_UP_BEST_MATCH 4: FOUND')
             return best_match
         #elif memoKey.clause is NotFollowedBy
         #    return memoKey.clause.match(self, memoKey, tokens)
         elif memoKey.clause.can_match_zero_chars:
-            print(f'LOOK_UP_BEST_MATCH 5: MATCH')
+            print(f'LOOK_UP_BEST_MATCH 5: FOUND ZERO LENGTH')
             return Match(memoKey, 0, 0, [])
 
     def __str__(self):
@@ -104,7 +104,7 @@ class Clause:
         self.rule_name = rule_name
         self.terminal_name = terminal_name
         self.production = production
-        self.clause_idx = -1
+        self.clause_idx = None
         self.production_uuids = production_uuids
         self.labeled_sub_clauses = []
         self.seed_parent_clauses = set()
@@ -113,7 +113,7 @@ class Clause:
 
 
 
-    def calculate_sub_clauses(self, terminal_to_clause: list, rule_to_sub_clauses: list, prod_uuid_to_clause: list):
+    def calculate_sub_clauses(self, terminal_to_clause: list, rule_to_clause: list, prod_uuid_to_clause: list):
         #print(f'calculate_sub_clauses PRE: {self.labeled_sub_clauses}')
         if self.is_first:
             self.labeled_sub_clauses = [prod_uuid_to_clause[uuid] for uuid in self.production_uuids]
@@ -122,7 +122,7 @@ class Clause:
                 if isinstance(step, Terminal):
                     self.labeled_sub_clauses.append(terminal_to_clause[step.name()])
                 elif isinstance(step, NonTerminal):
-                    self.labeled_sub_clauses.extend(rule_to_sub_clauses[step.name()])
+                    self.labeled_sub_clauses.append(rule_to_clause[step.name()])
                 else:
                     assert False
         elif self.is_term:
@@ -144,6 +144,7 @@ class Clause:
     def addAsSeedParentClause(self):
         for sub in self.labeled_sub_clauses:
             assert isinstance(sub, Clause)
+            #print(f'QQQQ addAsSeedParentClause self name: {self.name()} \tsub name {sub.name()}, \tsub id {id(sub)}, id self: {id(self)}')
             sub.seed_parent_clauses.add(self)
 
     """
@@ -154,24 +155,33 @@ class Clause:
     def match(self, memoTable: MemoTable, memoKey: MemoKey, tokens: list[str]):
         
         if self.is_term:
+            print('MATCHing TERM')
             if memoKey.startPos < len(tokens) and self.terminal_name == tokens[memoKey.startPos]:
                 return Match(memoKey, 1, 0, [])
         elif self.is_seq:
+            print('MATCHing SEQ')
             curr_start_pos = memoKey.startPos
             sub_clause_matches = [None]*len(self.labeled_sub_clauses)
-            print(f'MATCH SEQ pending {self.production.name}, len: {len(self.production.input_steps)}, len: {len(self.labeled_sub_clauses)}')
+            print(f'MATCH SEQ pending {self.production.name}, input steps len: {len(self.production.input_steps)}, sub clauses len: {len(self.labeled_sub_clauses)}')
+            
+            if not (len(self.production.input_steps) == len(self.labeled_sub_clauses)):
+                print(f'WARN: self.labeled_sub_clauses: {[str(a) for a in self.labeled_sub_clauses]}')
+            #    assert False
+
             for sub_clause_iteration_idx in range(len(self.labeled_sub_clauses)):
-                print(f'MATCH SEQ pending sub_clause_iteration_idx: {sub_clause_iteration_idx}')
                 sub            = self.labeled_sub_clauses[sub_clause_iteration_idx]
+                print(f'\tMATCH SEQ pending sub_clause_iteration_idx: {sub_clause_iteration_idx}, sub: {str(sub)}')
+                
                 sub_memo_key   = MemoKey(sub, curr_start_pos)
                 sub_match = memoTable.look_up_best_match(sub_memo_key)
                 if(sub_match == None):
-                    print(f'MATCH SEQ pending sub_clause_iteration_idx: {sub_clause_iteration_idx},  sub {sub.name()} did not result in a match')
+                    print(f'\tMATCH SEQ pending sub_clause_iteration_idx: {sub_clause_iteration_idx},  sub {sub.name()} did not result in a match')
                     return None
                 sub_clause_matches[sub_clause_iteration_idx] = sub_match
                 curr_start_pos += sub_match.len
             return Match(memoKey, curr_start_pos - memoKey.startPos, 0, sub_clause_matches)
         elif self.is_first:
+            print('MATCHing FIRST')
             curr_start_pos = memoKey.startPos
             for sub_clause_iteration_idx in range(len(self.labeled_sub_clauses)):
                 sub = self.labeled_sub_clauses[sub_clause_iteration_idx]
@@ -192,6 +202,12 @@ class Clause:
             return self.production.name
 
     def __str__(self):
+        #if self.is_term:
+        #    return f'(Term: {self.terminal_name}, id: {id(self)}, idx: {self.clause_idx}, seed_parent_clauses: {[str(a) for a in self.seed_parent_clauses]})'
+        #elif self.is_first:
+        #    return f'(First: {"".join(self.production_uuids)}, id: {id(self)}, idx: {self.clause_idx})'
+        #elif self.is_seq:
+        #    return f'(Seq: {self.production.name}, id: {id(self)}, idx: {self.clause_idx}, seed_parent_clauses: {[str(a) for a in self.seed_parent_clauses]})' 
         if self.is_term:
             return f'(Term: {self.terminal_name}, idx: {self.clause_idx})'
         elif self.is_first:
@@ -298,31 +314,14 @@ def __create_all_clauses(rule_manager: RuleManager, terminal_to_clause: list, ru
 
 def __findClauseTopoSortOrder(rule_manager: RuleManager, top_level_clauses: list, terminal_to_clause: list, rule_to_clause: list\
     , rule_to_sub_clauses: list, prod_uuid_to_clause: list, lowest_precedence_clauses: list, begin_rules = None):
-    #print('----')
-    __create_all_clauses(rule_manager, terminal_to_clause, rule_to_clause, rule_to_sub_clauses, prod_uuid_to_clause)
-    
-    # step 2: update sub_clauses
-    for c in prod_uuid_to_clause.values():
-        c.calculate_sub_clauses(terminal_to_clause, rule_to_sub_clauses, prod_uuid_to_clause)
-    for c in rule_to_clause.values():
-        c.calculate_sub_clauses(terminal_to_clause, rule_to_sub_clauses, prod_uuid_to_clause)
-    
-    # step 3: add seed parent clauses
-    for c in prod_uuid_to_clause.values():
-        c.addAsSeedParentClause()
-    for c in rule_to_clause.values():
-        c.addAsSeedParentClause()
-    for c in  terminal_to_clause.values():
-        c.addAsSeedParentClause()
-    #print('__create_all_clauses: Finished')
-
-    
+   
     # AFTER top level clauses 
     #   Start depth first search _from_
     #   all lowest precedence clauses in each precedence hierarchy
     #print(f'top_level_clauses: {top_level_clauses}')
-    depth_first_search_roots = copy.copy(top_level_clauses)
-    #print(f'top_level_clauses: {top_level_clauses}')
+    #depth_first_search_roots = copy.copy(top_level_clauses)
+    depth_first_search_roots = top_level_clauses
+    print(f'top_level_clauses: {[str(a) for a in top_level_clauses]}')
     depth_first_search_roots.extend(lowest_precedence_clauses)
 
     # Add toplevel clauses the set of all " head clauses " of cycles ( all clauses reachable twice )
@@ -348,7 +347,7 @@ def __findClauseTopoSortOrder(rule_manager: RuleManager, top_level_clauses: list
     
     # Give each clause an index in the topological sort order, bottom-up
     for i in range(len(all_clauses)):
-        #print(f'Giving clause {all_clauses[i]} id: {i}')
+        print(f'Giving clause {all_clauses[i]} id: {i}')
         assert isinstance(all_clauses[i], Clause)
         
         all_clauses[i].clause_idx = i
@@ -358,19 +357,28 @@ def __findClauseTopoSortOrder(rule_manager: RuleManager, top_level_clauses: list
     return all_clauses
 
 def __memoKey_to_state(rule_manager: RuleManager, match: Match):
-    #print(f'__memoKey_to_state match: {match.memoKey.clause.name()}')
-    prod = match.memoKey.clause.production
-    s = State(prod)
-    values = [None]*len(prod.input_steps)
-    for ind, step in enumerate(prod.input_steps):
-        if isinstance(step, Terminal):
-            pass
-        elif isinstance(step, NonTerminal):
-            values[ind] = __memoKey_to_state(rule_manager, match.sub_clause_matches[ind])
-        else:
-            assert False
-    s.values = values
-    #print(f'__memoKey_to_state match: {match.memoKey.clause.name()} CLOSE, vals: {values}')
+    print(f'__memoKey_to_state match: {match.memoKey.clause.name()}')
+    
+    if match.memoKey.clause.is_first:
+        assert len(match.sub_clause_matches) == 1
+
+        return __memoKey_to_state(rule_manager, match.sub_clause_matches[0])
+    elif match.memoKey.clause.is_seq:
+        print(f'__memoKey_to_state match: {match.memoKey.clause.production.name}')
+        prod = match.memoKey.clause.production
+        s = State(prod)
+        values = [None]*len(prod.input_steps)
+        for ind, step in enumerate(prod.input_steps):
+            if isinstance(step, Terminal):
+                pass
+            elif isinstance(step, NonTerminal):
+                values[ind] = __memoKey_to_state(rule_manager, match.sub_clause_matches[ind])
+            else:
+                assert False
+        s.values = values
+        #print(f'__memoKey_to_state match: {match.memoKey.clause.name()} CLOSE, vals: {values}')
+    else:
+        assert False
     return s
 
 def __memoTable_to_state(rule_manager: RuleManager, top_level_clauses: list, memoTable: MemoTable) -> State:
@@ -403,11 +411,29 @@ def parse(rule_manager: RuleManager, tokens: list[str], begin_rules: list = None
 
     top_level_clauses   = []
 
+    #print('----')
+    __create_all_clauses(rule_manager, terminal_to_clause, rule_to_clause, rule_to_sub_clauses, prod_uuid_to_clause)
+    
+    # step 2: update sub_clauses
+    for c in prod_uuid_to_clause.values():
+        c.calculate_sub_clauses(terminal_to_clause, rule_to_clause, prod_uuid_to_clause)
+    for c in rule_to_clause.values():
+        c.calculate_sub_clauses(terminal_to_clause, rule_to_clause, prod_uuid_to_clause)
+    
+    # step 3: add seed parent clauses
+    for c in prod_uuid_to_clause.values():
+        c.addAsSeedParentClause()
+    for c in rule_to_clause.values():
+        c.addAsSeedParentClause()
+    for c in  terminal_to_clause.values():
+        c.addAsSeedParentClause()
+    #print('__create_all_clauses: Finished')
+
+
     # Find top level clauses
     # WARN: THIS IS DIFFERENT FROM PAPER?
-    top_level_clauses.clear()
     if begin_rules == None:
-        top_level_clauses.append(Clause(production=rule_manager.productions[0]))
+        top_level_clauses.append(prod_uuid_to_clause[rule_manager.productions[0].uuid])
     else:
         assert False
 
@@ -415,6 +441,7 @@ def parse(rule_manager: RuleManager, tokens: list[str], begin_rules: list = None
     #print(f'top_level_clauses: {top_level_clauses}')
     #print(f'all_clauses, Terminal: {[f'{i}:{a}' for a,b in all_clauses[1]]}')
     print(f'all_clauses: {[str(a) for a in all_clauses]}')
+    print(f'top_level_clauses: {[str(a) for a in top_level_clauses]}')
     #return
 
     queue = PriorityQueue()
@@ -442,6 +469,7 @@ def parse(rule_manager: RuleManager, tokens: list[str], begin_rules: list = None
         while not queue.empty():
             
             curr_clause = queue.get()
+            print('|||||||||||||||||||||')
             print(f'PARSE queue curr_clause: {curr_clause}')
             memoKey     = MemoKey(curr_clause, startPos)
             match       = curr_clause.match(memoTable, memoKey, tokens)
