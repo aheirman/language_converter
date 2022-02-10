@@ -166,3 +166,35 @@ digit → "0" | "1"
         projectManager = ProjectManager([ruleManagerA])
         projectManager.processProductions()
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
+
+
+    #@unittest.skip("")
+    def test_pika_9(self):
+
+        ruleManagerA = parseIR("""{"id": "calc"}
+calculation → term "+" term
+term → "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+""")
+
+
+        inputs = ["1+5","9+6"]
+
+        projectManager = ProjectManager([ruleManagerA])
+        projectManager.processProductions()
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
+
+    #@unittest.skip("")
+    def test_pika_10(self):
+
+
+        ruleManagerA = parseIR("""{"id": "calc"}
+calculation → term opperator term
+opperator → "+" | "-" 
+term → "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+""")
+
+        inputs = ["1+5","9+6"]
+
+        projectManager = ProjectManager([ruleManagerA])
+        projectManager.processProductions()
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)

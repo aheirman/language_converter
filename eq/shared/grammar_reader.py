@@ -14,7 +14,7 @@ def __readFileLines(url: str) -> list[str]:
     with open(url) as f:
          return f.read().splitlines()
 
-ruleManagerA = Productiongenerator.createAllProductions([
+ruleManager_NL = Productiongenerator.createAllProductions([
         ('ESC-0-0', 'NL', '"\n"')], 'ESC')
 IRruleManager = parseIR_handwritten("""{"id": "ir", "imports": ["ESC"]}
 page         → settings{"opt": true} NL{"alo": true, "opt": true} expression{"alo": true}
@@ -34,7 +34,7 @@ token_str    → '"[a-zA-Z0-9,\+\-|(){}→\\\\"\\'<>#&%!=\\\\*~]+"'{"regex": tru
 token_regex  → '\\\\[[a-zA-Z0-9!<>#$,\\\\"\\\\\\'\\\\-\\\\+\\\\*_\\\\.!:→\\\\\\\\ /]+\\\\]([\\\\+\\\\*])?'{"regex": true, "quote": false}
 """.splitlines())
     
-projectManager = ProjectManager([ruleManagerA, IRruleManager])
+projectManager = ProjectManager([ruleManager_NL, IRruleManager])
 projectManager.processProductions()
 
 

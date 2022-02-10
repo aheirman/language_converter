@@ -296,10 +296,11 @@ def __findCycleHeadClauses(rule_manager, terminal_to_clause: list, rule_to_claus
     finished.add(clause)
 
 def __create_all_clauses(rule_manager: RuleManager, terminal_to_clause: list, rule_to_clause: list, rule_to_sub_clauses: list, prod_uuid_to_clause: list):
+    print(f'__create_all_clauses: {rule_manager.rule_to_ordered_productions}')
     for rule, prod_uuids in rule_manager.rule_to_ordered_productions.items():
         first_subs = []
         for prod_uuid in prod_uuids:
-            #print(f'create_all_clauses rule: {rule}, \tproduction uuid: {prod_uuid}')
+            print(f'create_all_clauses rule: {rule}, \tproduction uuid: {prod_uuid}')
             prod = rule_manager.getProduction(prod_uuid)
             curr_clause = Clause(production=prod)
             prod_uuid_to_clause[prod.uuid] = curr_clause
@@ -402,7 +403,7 @@ def __memoTable_to_state(rule_manager: RuleManager, top_level_clauses: list, mem
     return None
 
 def parse(rule_manager: RuleManager, tokens: list[str], begin_rules: list = None) -> MemoTable:
-    
+    print(f'parse: {rule_manager.rule_to_ordered_productions}')
     #indexed by name
     terminal_to_clause  = {}
     rule_to_clause      = {}

@@ -2,7 +2,7 @@ from eq.shared.expression import *
 
 
 class ProjectManager:
-    def __init__(self, rManagers):
+    def __init__(self, rManagers: list):
         self.rManagers = rManagers
         self.permanent_marks = set()
         self.temporary_marks = set()
