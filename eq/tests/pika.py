@@ -29,7 +29,7 @@ class PikaCheckUnit:
 class PIKA(unittest.TestCase, PikaCheckUnit):
     
     #@unittest.skip("")
-    def test_pika_1(self):
+    def test_pika_01(self):
 
         ruleManagerA = parseIR("""{"id": "calc"}
 calculation → "abc"
@@ -69,7 +69,7 @@ calculation → "abc"
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("")
-    def test_pika_2(self):
+    def test_pika_02(self):
 
         ruleManagerA = parseIR("""{"id": "calc"}
 calculation → term
@@ -84,7 +84,7 @@ term → "abc"
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("")
-    def test_pika_3(self):
+    def test_pika_03(self):
 
         ruleManagerA = parseIR("""{"id": "calc"}
 calculation → "abc" "def"{"pad":true}
@@ -97,7 +97,7 @@ calculation → "abc" "def"{"pad":true}
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
     
     #@unittest.skip("")
-    def test_pika_4(self):
+    def test_pika_04(self):
 
         ruleManagerA = parseIR("""{"id": "calc"}
 calculation → abc "ghj"{"pad":true}
@@ -111,7 +111,7 @@ abc → "abcdef"
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("")
-    def test_pika_5(self):
+    def test_pika_05(self):
 
         ruleManagerA = parseIR("""{"id": "calc"}
 calculation → abc "," digit
@@ -126,7 +126,7 @@ digit → "0"
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     @unittest.skip("First rule is not singular(?)")
-    def test_pika_6(self):
+    def test_pika_06(self):
 
         ruleManagerA = parseIR("""{"id": "calc"}
 digit → "0" | "1"
@@ -139,7 +139,7 @@ digit → "0" | "1"
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("")
-    def test_pika_7(self):
+    def test_pika_07(self):
 
         ruleManagerA = parseIR("""{"id": "calc"}
 digits → digit
@@ -153,7 +153,7 @@ digit → "0" | "1"
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
 
     #@unittest.skip("")
-    def test_pika_8(self):
+    def test_pika_08(self):
 
         ruleManagerA = parseIR("""{"id": "calc"}
 calculation → abc "," digit
@@ -169,7 +169,7 @@ digit → "0" | "1"
 
 
     #@unittest.skip("")
-    def test_pika_9(self):
+    def test_pika_09(self):
 
         ruleManagerA = parseIR("""{"id": "calc"}
 calculation → term "+" term
@@ -194,6 +194,20 @@ term → "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
 """)
 
         inputs = ["1+5","9+6"]
+
+        projectManager = ProjectManager([ruleManagerA])
+        projectManager.processProductions()
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
+
+    #@unittest.skip("")
+    def test_pika_11(self):
+        ruleManagerA = parseIR("""{"id": "calc"}
+main → term
+term → "0" | letter
+letter → "a"
+""")
+
+        inputs = ["0", "a"]
 
         projectManager = ProjectManager([ruleManagerA])
         projectManager.processProductions()

@@ -216,32 +216,17 @@ class Clause:
             return f'(Seq: {self.production.name}, idx: {self.clause_idx})' 
 
     def __lt__(self, other):
+        print(f'__lt__ self: {self.name()}, other: {other.name()}')
         return self.clause_idx < other.clause_idx
 
-    """
-    def __eq__(self, other):
-        return (self.clause_idx == other.clause_idx) and \
-            (self.is_term == other.is_term) and \
-            (self.is_seq == other.is_seq) and \
-            (self.is_first == other.is_first) and \
-            (self.production == other.pro)
-    """
 
 def __get_sub_clauses(rule_manager, terminal_to_clause, rule_to_clause, rule_to_sub_clauses, clause: Clause):
-    """
-    prods = __get_all_prod_with_name(rule_manager, clause)
-    
-    subs = set()
-    for prod in prods:j
-        for step in prod.input_steps:
-            subs.add(step.name())
-    """
     if clause.is_term:
         return []
     elif clause.is_first:
-        #print(f'rule_to_clause: {rule_to_clause}')
-        #print(f'rule_to_sub_clauses: {rule_to_sub_clauses}')
-        #print(f'clause.name(): {clause.name()}')
+        #print(f'__get_sub_clauses FIRST rule_to_clause: {rule_to_clause}')
+        #print(f'__get_sub_clauses FIRST rule_to_sub_clauses: {rule_to_sub_clauses}')
+        #print(f'__get_sub_clauses FIRST clause.name(): {clause.name()}')
         return rule_to_sub_clauses[clause.rule_name]
     elif clause.is_seq:
         subs = []
@@ -348,7 +333,7 @@ def __findClauseTopoSortOrder(rule_manager: RuleManager, top_level_clauses: list
     
     # Give each clause an index in the topological sort order, bottom-up
     for i in range(len(all_clauses)):
-        print(f'Giving clause {all_clauses[i]} id: {i}')
+        print(f'findClauseTopoSortOrder Giving clause {all_clauses[i]} id: {i}')
         assert isinstance(all_clauses[i], Clause)
         
         all_clauses[i].clause_idx = i
@@ -442,7 +427,9 @@ def parse(rule_manager: RuleManager, tokens: list[str], begin_rules: list = None
     #print(f'top_level_clauses: {top_level_clauses}')
     #print(f'all_clauses, Terminal: {[f'{i}:{a}' for a,b in all_clauses[1]]}')
     print(f'all_clauses: {[str(a) for a in all_clauses]}')
+    print(f'terminal_to_clause: {[str(a) for a in terminal_to_clause]}')
     print(f'top_level_clauses: {[str(a) for a in top_level_clauses]}')
+    print(f'rule_to_clause: {[str(a) for a in rule_to_clause.values()]}')
     #return
 
     queue = PriorityQueue()
