@@ -4,8 +4,8 @@ import uuid
 import json
 import socket
 
-from late.late import *
-import late.read
+from eq.early.late import *
+import eq.shared.grammar_reader
 
 
 
@@ -34,7 +34,7 @@ def test_mul_distributivity(input):
 
 def python(code):
     #matched = late.read.parse('./languages/python/ebnf', './languages/python/python.peg', tokenizeFromJson(code))
-    prods = late.read.getMetaIrProductions('./languages/python/ebnf')
+    prods = eq.shared.grammar_reader.getMetaIrProductions('./languages/python/ebnf')
     matched = match(prods, tokenizeFromJson(code))
 
     if matched != None:
@@ -69,7 +69,7 @@ def init():
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     host = 'localhost'
     print(f'socket.gethostname(): {host}')
-    port = 12350
+    port = 12351
     s.bind((host, port))
     backlog = 5
     s.listen(backlog)

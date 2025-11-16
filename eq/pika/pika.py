@@ -93,16 +93,16 @@ class MemoTable:
         if it is a production uuids: First
 """
 class Clause:
-    def __init__(self, terminal_name=None, production=None, production_uuids = None, rule_name = None):
+    def __init__(self, terminal=None, production=None, production_uuids = None, rule_name = None):
         #print(f'production: {production}')
-        assert (int(terminal_name==None) + int(production==None) + int(production_uuids==None)) == 2
+        assert (int(terminal==None) + int(production==None) + int(production_uuids==None)) == 2
         assert (production_uuids==None) == (rule_name==None)
-        self.is_term  = terminal_name    != None
+        self.is_term  = terminal    != None
         self.is_seq   = production       != None
         self.is_first = production_uuids != None
 
         self.rule_name = rule_name
-        self.terminal_name = terminal_name
+        self.terminal = terminal
         self.production = production
         self.clause_idx = None
         self.production_uuids = production_uuids
@@ -120,7 +120,7 @@ class Clause:
         elif self.is_seq:
             for step in self.production.input_steps:
                 if isinstance(step, Terminal):
-                    self.labeled_sub_clauses.append(terminal_to_clause[step.name()])
+                    self.labeled_sub_clauses.append(terminal_to_clause[step])
                 elif isinstance(step, NonTerminal):
                     self.labeled_sub_clauses.append(rule_to_clause[step.name()])
                 else:
@@ -136,7 +136,11 @@ class Clause:
         Can this clause match zero chars
     """
     def __determineWhetherCanMatchZeroChars(self):
-        self.can_match_zero_chars = False
+        if self.is_term:
+            self.can_match_zero_chars = self.terminal.can_match_zero_chars
+        elif self.is_seq:
+            for step in self.production.input_steps:
+                sub = 
 
     """
         ?
@@ -156,7 +160,7 @@ class Clause:
         
         if self.is_term:
             print('MATCHing TERM')
-            if memoKey.startPos < len(tokens) and self.terminal_name == tokens[memoKey.startPos]:
+            if memoKey.startPos < len(tokens) and self.terminal.match(tokens[memoKey.startPos]):
                 return Match(memoKey, 1, 0, [])
         elif self.is_seq:
             print('MATCHing SEQ')
@@ -195,7 +199,7 @@ class Clause:
 
     def name(self):
         if self.is_term:
-            return self.terminal_name
+            return self.terminal.name()
         elif self.is_first:
             return ''.join(self.production_uuids)
         elif self.is_seq:
@@ -203,13 +207,13 @@ class Clause:
 
     def __str__(self):
         #if self.is_term:
-        #    return f'(Term: {self.terminal_name}, id: {id(self)}, idx: {self.clause_idx}, seed_parent_clauses: {[str(a) for a in self.seed_parent_clauses]})'
+        #    return f'(Term: {self.terminal.name()}, id: {id(self)}, idx: {self.clause_idx}, seed_parent_clauses: {[str(a) for a in self.seed_parent_clauses]})'
         #elif self.is_first:
         #    return f'(First: {"".join(self.production_uuids)}, id: {id(self)}, idx: {self.clause_idx})'
         #elif self.is_seq:
         #    return f'(Seq: {self.production.name}, id: {id(self)}, idx: {self.clause_idx}, seed_parent_clauses: {[str(a) for a in self.seed_parent_clauses]})' 
         if self.is_term:
-            return f'(Term: {self.terminal_name}, idx: {self.clause_idx})'
+            return f'(Term: {self.terminal.name()}, idx: {self.clause_idx})'
         elif self.is_first:
             return f'(First: {"".join(self.production_uuids)}, idx: {self.clause_idx})'
         elif self.is_seq:
@@ -232,7 +236,7 @@ def __get_sub_clauses(rule_manager, terminal_to_clause, rule_to_clause, rule_to_
         subs = []
         for step in clause.production.input_steps:
             if isinstance(step, Terminal):
-                subs.append(terminal_to_clause[step.name()])
+                subs.append(terminal_to_clause[step])
             else:
                 assert isinstance(step, NonTerminal)
                 #print(f'step.name(): {step.name()}, rule_to_clause[step.name()]: {[ a.name() for a in rule_to_clause[step.name()]]}')
@@ -292,9 +296,9 @@ def __create_all_clauses(rule_manager: RuleManager, terminal_to_clause: list, ru
             first_subs.append(curr_clause)
             for step in prod.input_steps:
                 if isinstance(step, Terminal):
-                    name = step.name()
-                    if not name in terminal_to_clause:
-                        terminal_to_clause[name] = Clause(terminal_name=name)
+                    terminal = step
+                    if not terminal in terminal_to_clause:
+                        terminal_to_clause[terminal] = Clause(terminal=terminal)
         rule_to_sub_clauses[rule] = first_subs
         rule_to_clause[rule]      = Clause(production_uuids=prod_uuids,rule_name=rule)
 
@@ -342,13 +346,13 @@ def __findClauseTopoSortOrder(rule_manager: RuleManager, top_level_clauses: list
     
     return all_clauses
 
-def __memoKey_to_state(rule_manager: RuleManager, match: Match):
+def __memoKey_to_state(rule_manager: RuleManager, match: Match, tokens: list[str]):
     print(f'__memoKey_to_state match: {match.memoKey.clause.name()}')
     
     if match.memoKey.clause.is_first:
         assert len(match.sub_clause_matches) == 1
 
-        return __memoKey_to_state(rule_manager, match.sub_clause_matches[0])
+        return __memoKey_to_state(rule_manager, match.sub_clause_matches[0], tokens)
     elif match.memoKey.clause.is_seq:
         print(f'__memoKey_to_state match: {match.memoKey.clause.production.name}')
         prod = match.memoKey.clause.production
@@ -356,9 +360,12 @@ def __memoKey_to_state(rule_manager: RuleManager, match: Match):
         values = [None]*len(prod.input_steps)
         for ind, step in enumerate(prod.input_steps):
             if isinstance(step, Terminal):
-                pass
+                if containsAndTrue(step.token.settings, 'regex'):
+                    pos = match.sub_clause_matches[ind].memoKey.startPos
+                    values[ind] = tokens[pos]
+                    print(f'AAAAAAAAAA values[ind]: {values[ind]}')
             elif isinstance(step, NonTerminal):
-                values[ind] = __memoKey_to_state(rule_manager, match.sub_clause_matches[ind])
+                values[ind] = __memoKey_to_state(rule_manager, match.sub_clause_matches[ind], tokens)
             else:
                 assert False
         s.values = values
@@ -367,7 +374,7 @@ def __memoKey_to_state(rule_manager: RuleManager, match: Match):
         assert False
     return s
 
-def __memoTable_to_state(rule_manager: RuleManager, top_level_clauses: list, memoTable: MemoTable) -> State:
+def __memoTable_to_state(rule_manager: RuleManager, top_level_clauses: list, memoTable: MemoTable, tokens: list[str]) -> State:
     #print('AAAAAAAA')
     #print(f'__memoTable_to_state: {top_level_clauses}')
     assert len(top_level_clauses) == 1
@@ -380,7 +387,7 @@ def __memoTable_to_state(rule_manager: RuleManager, top_level_clauses: list, mem
         #    s2 = State(s_match.memoKey.clause.production)
         #    values.append(s2)
         #s.values = values
-        s = __memoKey_to_state(rule_manager, match)
+        s = __memoKey_to_state(rule_manager, match, tokens)
         
 
         return s
@@ -465,7 +472,7 @@ def parse(rule_manager: RuleManager, tokens: list[str], begin_rules: list = None
     
     print('~~~~~~~~~~~~~~~~~~~~~~~~~~')
     print(f'PARSE FINISHED memoTable: {memoTable}')
-    s = __memoTable_to_state(rule_manager, top_level_clauses, memoTable)
+    s = __memoTable_to_state(rule_manager, top_level_clauses, memoTable, tokens)
     return s
 
 

@@ -212,3 +212,30 @@ letter → "a"
         projectManager = ProjectManager([ruleManagerA])
         projectManager.processProductions()
         self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
+
+
+    #@unittest.skip("")
+    def test_pika_12(self):
+        ruleManagerA = parseIR("""{"id": "calc"}
+main → letter
+letter → [a-zA-Z]
+""")
+
+        inputs = ["a", "b", "A", "Z"]
+
+        projectManager = ProjectManager([ruleManagerA])
+        projectManager.processProductions()
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)
+
+    #@unittest.skip("")
+    def test_pika_13(self):
+        ruleManagerA = parseIR("""{"id": "calc"}
+main → letter
+letter → [a-zA-Z]*
+""")
+
+        inputs = ["", "a", "aaa", "b", "A", "Z", "ZZaZa"]
+
+        projectManager = ProjectManager([ruleManagerA])
+        projectManager.processProductions()
+        self.runSubtests(ruleManagerA, ruleManagerA, inputs, inputs)

@@ -41,6 +41,8 @@ class Terminal():
         else:
             self.rule = rule
             #print(f"Terminal with rule: {self.token.tok}")
+        
+        self.can_match_zero_chars = (self.match("") == True)
 
     
     def match(self, input: str):
