@@ -1,3 +1,5 @@
+An automated tool to convert between different ASTs based on a set of rules, which allows for limited programming language translation.
+
 dependencies
     pip install rstr
 
